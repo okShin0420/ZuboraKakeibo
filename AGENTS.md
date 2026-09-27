@@ -20,17 +20,17 @@
 ## リポジトリ構成
 
 - `frontend/`：React・TypeScript・ViteによるWebクライアント
-- `backend/`：SQLite・PostgreSQLマイグレーション、期間計算、将来のAPI、DBアクセス、バックエンドテスト
+- `backend/`：SQLiteマイグレーション、期間計算、Spring Boot API、DBアクセス、バックエンドテスト
 - `docs/`：画面遷移、デザイン仕様、設計資料
 - フロントエンド固有の依存関係やコマンドは `frontend/` 内で管理する。
-- スマホ本番は端末内SQLite、開発環境はローカルPostgreSQLを使用する。DB設計は `docs/database/DATABASE_DESIGN.md` を基準にする。
-- UUIDと日時はアプリケーション側で生成し、SQLiteとPostgreSQLの互換性を維持する。
+- 今回の開発ではSpring BootからSQLiteを使用し、PostgreSQLは使用しない。DB設計は `docs/database/DATABASE_DESIGN.md` を基準にする。
+- UUIDと日時はアプリケーション側で生成し、SQLiteのDB固有生成関数には依存しない。
 
 ## MVP の範囲
 
 初期リリースで扱う機能は次の4つです。
 
-1. 月のやりくり額設定（通知、月初めの日、締め日、土日祝の締め日調整を含む）
+1. 月のやりくり額設定（通知、月度の開始日、土日祝による月度終了日の自動調整を含む）
 2. 金額必須・メモ任意の支出記録と、残り予算への即時反映
 3. 残り予算、今日の支出、残り日数、ゆるいフィードバックを表示するホーム（1日あたりの目安は表示しない）
 4. 日ごとの支出合計を表示し、日付ごとの記録を確認できるカレンダー

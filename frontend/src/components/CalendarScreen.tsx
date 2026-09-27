@@ -5,6 +5,12 @@ import { ExpenseInputModal } from './ExpenseInputModal'
 import type { ExpenseDraft } from '../types'
 
 const weekdays = ['月', '火', '水', '木', '金', '土', '日']
+const holidays2026 = new Set([
+  '2026-01-01', '2026-01-12', '2026-02-11', '2026-02-23', '2026-03-20',
+  '2026-04-29', '2026-05-03', '2026-05-04', '2026-05-05', '2026-05-06',
+  '2026-07-20', '2026-08-11', '2026-09-21', '2026-09-22', '2026-09-23',
+  '2026-10-12', '2026-11-03', '2026-11-23',
+])
 
 type CalendarExpense = { id: string; amount: number; memo: string }
 
@@ -26,11 +32,42 @@ const initialSeptemberEntries: Record<number, CalendarExpense[]> = {
 }
 
 const yen = (value: number) => new Intl.NumberFormat('ja-JP').format(value)
+const isoDate = (date: Date) => [
+  date.getUTCFullYear(),
+  String(date.getUTCMonth() + 1).padStart(2, '0'),
+  String(date.getUTCDate()).padStart(2, '0'),
+].join('-')
 
-export function CalendarScreen({ onNavigate, startDay, closingDay }: {
+const addDays = (date: Date, days: number) => {
+  const result = new Date(date)
+  result.setUTCDate(result.getUTCDate() + days)
+  return result
+}
+const isWeekendOrHoliday = (date: Date) => date.getUTCDay() === 0 || date.getUTCDay() === 6 || holidays2026.has(isoDate(date))
+
+const scheduledStart = (year: number, monthIndex: number, startDay: number) => {
+  const lastDay = new Date(Date.UTC(year, monthIndex + 1, 0)).getUTCDate()
+  return new Date(Date.UTC(year, monthIndex, Math.min(startDay, lastDay)))
+}
+
+const adjustedStart = (date: Date, adjustHoliday: boolean) => {
+  let start = new Date(date)
+  if (adjustHoliday) {
+    while (isWeekendOrHoliday(start)) start = addDays(start, -1)
+  }
+  return start
+}
+
+const calculatePeriod = (year: number, monthIndex: number, startDay: number, adjustHoliday: boolean) => {
+  const start = adjustedStart(scheduledStart(year, monthIndex, startDay), adjustHoliday)
+  const nextStart = adjustedStart(scheduledStart(year, monthIndex + 1, startDay), adjustHoliday)
+  return { start, end: addDays(nextStart, -1) }
+}
+
+export function CalendarScreen({ onNavigate, startDay, adjustHoliday }: {
   onNavigate: (tab: NavigationTab) => void
   startDay: string
-  closingDay: string
+  adjustHoliday: boolean
 }) {
   const [displayDate, setDisplayDate] = useState(new Date(2026, 8, 1))
   const [selectedDay, setSelectedDay] = useState<number | null>(21)
@@ -41,11 +78,14 @@ export function CalendarScreen({ onNavigate, startDay, closingDay }: {
   const month = displayDate.getMonth() + 1
   const isSeptember2026 = year === 2026 && month === 9
   const daysInMonth = new Date(year, month, 0).getDate()
-  const periodStart = Math.min(Number(startDay), daysInMonth)
-  const periodEnd = closingDay === 'last' ? daysInMonth : Math.min(Number(closingDay), daysInMonth)
-  const isDayInPeriod = (day: number) => periodStart <= periodEnd
-    ? day >= periodStart && day <= periodEnd
-    : day >= periodStart || day <= periodEnd
+  const period = useMemo(() => {
+    const parsedStartDay = Number(startDay)
+    return calculatePeriod(year, month - 1, parsedStartDay, adjustHoliday)
+  }, [adjustHoliday, month, startDay, year])
+  const isDayInPeriod = (day: number) => {
+    const date = new Date(Date.UTC(year, month - 1, day))
+    return date >= period.start && date <= period.end
+  }
   const entries = isSeptember2026 ? expenseEntries : {}
   const expenses = Object.fromEntries(Object.entries(entries).map(([day, dayEntries]) => [day, dayEntries.reduce((sum, entry) => sum + entry.amount, 0)])) as Record<number, number>
 
@@ -60,7 +100,7 @@ export function CalendarScreen({ onNavigate, startDay, closingDay }: {
 
   useEffect(() => {
     if (selectedDay && !isDayInPeriod(selectedDay)) setSelectedDay(null)
-  }, [periodStart, periodEnd, selectedDay])
+  }, [period.end, period.start, selectedDay])
 
   const changeMonth = (difference: number) => {
     const next = new Date(year, month - 1 + difference, 1)

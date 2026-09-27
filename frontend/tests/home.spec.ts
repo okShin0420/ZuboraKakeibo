@@ -121,8 +121,16 @@ test('主要画面を移動し、設定した月予算をホームへ反映す�
   await page.getByRole('button', { name: 'グラフ', exact: true }).click()
   await expect(page.getByRole('heading', { name: 'やりくり金額' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'グラフ', exact: true })).toHaveAttribute('aria-current', 'page')
-  await page.getByRole('button', { name: '前年' }).click()
-  await expect(page.locator('.month-switcher p')).toHaveText('2025年')
+  const yearButton = page.getByRole('button', { name: '2026年', exact: true })
+  await expect(yearButton).toHaveAttribute('aria-expanded', 'false')
+  await yearButton.click()
+  const yearDialog = page.getByRole('dialog', { name: '表示する年' })
+  await expect(yearDialog).toBeVisible()
+  await expect(yearButton).toHaveAttribute('aria-expanded', 'true')
+  await yearDialog.getByRole('radio', { name: '2026年' }).click()
+  await expect(yearDialog).toHaveCount(0)
+  await page.getByRole('button', { name: '2026年9月、9,400円' }).click()
+  await expect(page.getByText('¥9,400')).toBeVisible()
 
   await page.getByRole('button', { name: 'ホーム', exact: true }).click()
   await expect(page.getByLabel('残り予算 58,200円')).toBeVisible()
@@ -142,4 +150,57 @@ test('主要な文字色が通常テキストのコントラスト基準を満�
     const values = [luminance(tokens[foreground]), luminance(tokens[background])].sort((a, b) => b - a)
     expect((values[0] + .05) / (values[1] + .05)).toBeGreaterThanOrEqual(4.5)
   }
+})
+
+test('グラフは余白を詰めて選択月と棒を連動表示する', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto('/')
+  await page.getByRole('button', { name: 'グラフ', exact: true }).click()
+
+  const metrics = await page.evaluate(() => {
+    const summary = document.querySelector<HTMLElement>('.graph-summary')!.getBoundingClientRect()
+    const year = document.querySelector<HTMLElement>('.graph-year-switcher')!.getBoundingClientRect()
+    const selection = document.querySelector<HTMLElement>('.chart-selection-summary')!.getBoundingClientRect()
+    const chart = document.querySelector<HTMLElement>('.chart')!.getBoundingClientRect()
+    return {
+      summaryToYear: year.top - summary.bottom,
+      yearToSelection: selection.top - year.bottom,
+      chartHeight: chart.height,
+    }
+  })
+  expect(metrics.summaryToYear).toBeLessThanOrEqual(24)
+  expect(metrics.yearToSelection).toBeLessThanOrEqual(12)
+  expect(metrics.chartHeight).toBeGreaterThanOrEqual(250)
+
+  const january = page.getByRole('button', { name: '2026年1月、16,500円' })
+  const december = page.getByRole('button', { name: '2026年12月、12,000円' })
+  for (const month of [january, december]) {
+    await month.click()
+    const expectedAmount = month === january ? '¥16,500' : '¥12,000'
+    await expect(page.locator('.graph-summary strong')).toHaveText(expectedAmount)
+    const { track, card } = await page.evaluate(() => {
+      const track = document.querySelector<HTMLElement>('.chart-selection-track')!.getBoundingClientRect()
+      const card = document.querySelector<HTMLElement>('.chart-selection-summary')!.getBoundingClientRect()
+      return { track: { left: track.left, right: track.right }, card: { left: card.left, right: card.right } }
+    })
+    expect(card.left).toBeGreaterThanOrEqual(track.left)
+    expect(card.right).toBeLessThanOrEqual(track.right)
+  }
+
+  for (const viewport of [{ width: 320, height: 667 }, { width: 1440, height: 1000 }]) {
+    await page.setViewportSize(viewport)
+    const bounds = await page.evaluate(() => ({ width: document.documentElement.clientWidth, scrollWidth: document.documentElement.scrollWidth }))
+    expect(bounds.scrollWidth).toBeLessThanOrEqual(bounds.width)
+    const chart = await page.locator('.chart').boundingBox()
+    expect(chart?.height).toBeGreaterThanOrEqual(250)
+  }
+
+  await page.setViewportSize({ width: 390, height: 844 })
+
+  await page.getByRole('button', { name: '2026年', exact: true }).click()
+  const yearDialog = page.getByRole('dialog', { name: '表示する年' })
+  await expect(yearDialog).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(yearDialog).toHaveCount(0)
+  await page.screenshot({ path: 'test-results/graph-390.png', fullPage: true })
 })

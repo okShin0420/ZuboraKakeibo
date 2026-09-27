@@ -28,51 +28,55 @@ const isWeekend = date => date.getUTCDay() === 0 || date.getUTCDay() === 6
 
 const assertDay = (value, fieldName, nullable = false) => {
   if (nullable && value === null) return
-  if (!Number.isInteger(value) || value < 1 || value > 28) {
-    throw new Error(`${fieldName} は1〜28の整数で指定してください`)
+  if (!Number.isInteger(value) || value < 1 || value > 31) {
+    throw new Error(`${fieldName} は1〜31の整数で指定してください`)
   }
 }
 
-const assertHolidayCoverage = (nominalEnd, holidayCoverage) => {
+const assertHolidayCoverage = (date, holidayCoverage) => {
   if (!holidayCoverage) throw new Error('祝日データの対象期間が確認できません')
   const coverageStart = parseIsoDate(holidayCoverage.start, 'holidayCoverage.start')
   const coverageEnd = parseIsoDate(holidayCoverage.end, 'holidayCoverage.end')
-  if (nominalEnd < coverageStart || nominalEnd > coverageEnd) {
-    throw new Error('締め日の祝日データが不足しています')
+  if (date < coverageStart || date > coverageEnd) {
+    throw new Error('月度開始日の祝日データが不足しています')
   }
+}
+
+const scheduledStartDate = (year, monthIndex, startDay) => {
+  const lastDay = new Date(Date.UTC(year, monthIndex + 1, 0)).getUTCDate()
+  return new Date(Date.UTC(year, monthIndex, Math.min(startDay, lastDay)))
 }
 
 export function calculateBudgetPeriod({
   labelMonth,
   startDay,
-  closingDay,
   adjustForWeekendsAndHolidays,
   holidayDates = [],
   holidayCoverage,
 }) {
   assertDay(startDay, 'startDay')
-  assertDay(closingDay, 'closingDay', true)
 
   const label = parseIsoDate(labelMonth, 'labelMonth')
   if (label.getUTCDate() !== 1) throw new Error('labelMonth は対象月の1日を指定してください')
 
   const year = label.getUTCFullYear()
   const monthIndex = label.getUTCMonth()
-  const nominalEnd = closingDay === null
-    ? new Date(Date.UTC(year, monthIndex + 1, 0))
-    : new Date(Date.UTC(year, monthIndex, closingDay))
-
-  const startMonthIndex = startDay <= nominalEnd.getUTCDate() ? monthIndex : monthIndex - 1
-  const start = new Date(Date.UTC(year, startMonthIndex, startDay))
-  let end = new Date(nominalEnd)
-
-  if (adjustForWeekendsAndHolidays) {
-    assertHolidayCoverage(nominalEnd, holidayCoverage)
-    const holidays = new Set(holidayDates)
-    while (isWeekend(end) || holidays.has(formatIsoDate(end))) end = addDays(end, -1)
+  const holidays = new Set(holidayDates)
+  const adjustStart = scheduledStart => {
+    if (!adjustForWeekendsAndHolidays) return new Date(scheduledStart)
+    let start = new Date(scheduledStart)
+    while (true) {
+      assertHolidayCoverage(start, holidayCoverage)
+      if (!isWeekend(start) && !holidays.has(formatIsoDate(start))) return start
+      start = addDays(start, -1)
+    }
   }
+  const start = adjustStart(scheduledStartDate(year, monthIndex, startDay))
+  const nextScheduledStart = scheduledStartDate(year, monthIndex + 1, startDay)
+  const nominalEnd = addDays(nextScheduledStart, -1)
+  const end = addDays(adjustStart(nextScheduledStart), -1)
 
-  if (end < start) throw new Error('調整後の締め日が期間開始日より前になります')
+  if (end < start) throw new Error('調整後の月度終了日が開始日より前になります')
 
   return {
     labelMonth: formatIsoDate(label),
@@ -105,7 +109,6 @@ export function assertNoBudgetPeriodOverlap(candidate, existingPeriods) {
 
 export function planCycleRuleChange({ currentRule, nextPeriodStart, nextRule, nextRuleId, now }) {
   assertDay(nextRule.startDay, 'nextRule.startDay')
-  assertDay(nextRule.closingDay, 'nextRule.closingDay', true)
   const effectiveFrom = parseIsoDate(nextPeriodStart, 'nextPeriodStart')
   const currentEffectiveFrom = parseIsoDate(currentRule.effectiveFrom, 'currentRule.effectiveFrom')
   if (effectiveFrom <= currentEffectiveFrom) throw new Error('新しい設定は現在の設定より後から適用してください')
@@ -119,7 +122,6 @@ export function planCycleRuleChange({ currentRule, nextPeriodStart, nextRule, ne
     newRule: {
       id: nextRuleId,
       startDay: nextRule.startDay,
-      closingDay: nextRule.closingDay,
       adjustForWeekendsAndHolidays: nextRule.adjustForWeekendsAndHolidays,
       effectiveFrom: formatIsoDate(effectiveFrom),
       effectiveTo: null,

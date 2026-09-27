@@ -6,14 +6,14 @@ import { DatabaseSync } from 'node:sqlite'
 import { fileURLToPath } from 'node:url'
 
 const backendRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
-const migration = (dialect, direction) => readFileSync(
-  resolve(backendRoot, 'migrations', dialect, `001_initial.${direction}.sql`),
+const migration = (dialect, version, direction) => readFileSync(
+  resolve(backendRoot, 'migrations', dialect, `${String(version).padStart(3, '0')}_${version === 1 ? 'initial' : 'expand_budget_cycle_start_day'}.${direction}.sql`),
   'utf8',
 )
 
 const expectedColumns = {
   app_settings: ['id', 'monthly_notification_enabled', 'timezone', 'created_at', 'updated_at'],
-  budget_cycle_rules: ['id', 'start_day', 'closing_day', 'adjust_for_weekends_and_holidays', 'effective_from', 'effective_to', 'created_at', 'updated_at'],
+  budget_cycle_rules: ['id', 'start_day', 'adjust_for_weekends_and_holidays', 'effective_from', 'effective_to', 'created_at', 'updated_at'],
   budget_periods: ['id', 'cycle_rule_id', 'label_month', 'start_date', 'nominal_end_date', 'end_date', 'budget_amount', 'created_at', 'updated_at'],
   expenses: ['id', 'budget_period_id', 'spent_on', 'amount', 'memo', 'created_at', 'updated_at'],
   holiday_calendar_coverage: ['calendar_year', 'source', 'imported_at'],
@@ -30,13 +30,17 @@ const timestamp = '2026-09-22T00:00:00.000Z'
 function createSqliteAdapter() {
   const database = new DatabaseSync(':memory:')
   database.exec('PRAGMA foreign_keys = ON;')
-  database.exec(migration('sqlite', 'up'))
+  database.exec(migration('sqlite', 1, 'up'))
+  database.exec(migration('sqlite', 2, 'up'))
   return {
     bool: value => value ? 1 : 0,
     run: async (sql, values = []) => database.prepare(sql).run(...values),
     one: async (sql, values = []) => database.prepare(sql).get(...values),
     columns: async table => database.prepare(`PRAGMA table_info(${table})`).all().map(column => column.name),
-    rollback: async () => database.exec(migration('sqlite', 'down')),
+    rollback: async () => {
+      database.exec(migration('sqlite', 2, 'down'))
+      database.exec(migration('sqlite', 1, 'down'))
+    },
     close: async () => database.close(),
   }
 }
@@ -53,9 +57,9 @@ async function runContract(adapter) {
   )
   await adapter.run(
     `INSERT INTO budget_cycle_rules
-      (id, start_day, closing_day, adjust_for_weekends_and_holidays, effective_from, effective_to, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    [ids.rule, 1, null, adapter.bool(true), '2026-09-01', null, timestamp, timestamp],
+      (id, start_day, adjust_for_weekends_and_holidays, effective_from, effective_to, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [ids.rule, 1, adapter.bool(true), '2026-09-01', null, timestamp, timestamp],
   )
   await adapter.run(
     `INSERT INTO budget_periods
@@ -112,11 +116,56 @@ test('SQLiteの初期スキーマと共通契約', async () => {
       assert.deepEqual(await adapter.columns(table), columns)
     }
     await runContract(adapter)
+    await adapter.run('UPDATE budget_cycle_rules SET start_day = ? WHERE id = ?', [31, ids.rule])
+    assert.equal((await adapter.one('SELECT start_day FROM budget_cycle_rules WHERE id = ?', [ids.rule])).start_day, 31)
+    await assert.rejects(adapter.run('UPDATE budget_cycle_rules SET start_day = ? WHERE id = ?', [32, ids.rule]))
+    await adapter.run('UPDATE budget_cycle_rules SET start_day = ? WHERE id = ?', [1, ids.rule])
     await adapter.rollback()
     assert.equal((await adapter.one('PRAGMA user_version')).user_version, 0)
     assert.equal((await adapter.one("SELECT COUNT(*) AS count FROM sqlite_master WHERE type = 'table' AND name = 'expenses'")).count, 0)
   } finally {
     await adapter.close()
+  }
+})
+
+test('SQLite v1からv2への移行は設定を保持し、31日を許可する', () => {
+  const database = new DatabaseSync(':memory:')
+  try {
+    database.exec('PRAGMA foreign_keys = ON;')
+    database.exec(migration('sqlite', 1, 'up'))
+    database.prepare(
+      `INSERT INTO budget_cycle_rules
+        (id, start_day, adjust_for_weekends_and_holidays, effective_from, effective_to, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    ).run(ids.rule, 28, 1, '2026-09-01', null, timestamp, timestamp)
+
+    database.exec(migration('sqlite', 2, 'up'))
+
+    assert.equal(database.prepare('PRAGMA user_version').get().user_version, 2)
+    assert.equal(database.prepare('SELECT start_day FROM budget_cycle_rules WHERE id = ?').get(ids.rule).start_day, 28)
+    database.prepare('UPDATE budget_cycle_rules SET start_day = ? WHERE id = ?').run(31, ids.rule)
+    assert.throws(() => database.prepare('UPDATE budget_cycle_rules SET start_day = ? WHERE id = ?').run(32, ids.rule))
+  } finally {
+    database.close()
+  }
+})
+
+test('SQLite v2のロールバックは29日以上の設定を安全に拒否する', () => {
+  const database = new DatabaseSync(':memory:')
+  try {
+    database.exec('PRAGMA foreign_keys = ON;')
+    database.exec(migration('sqlite', 1, 'up'))
+    database.exec(migration('sqlite', 2, 'up'))
+    database.prepare(
+      `INSERT INTO budget_cycle_rules
+        (id, start_day, adjust_for_weekends_and_holidays, effective_from, effective_to, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    ).run(ids.rule, 31, 1, '2026-09-01', null, timestamp, timestamp)
+
+    assert.throws(() => database.exec(migration('sqlite', 2, 'down')))
+    assert.equal(database.prepare('SELECT start_day FROM budget_cycle_rules WHERE id = ?').get(ids.rule).start_day, 31)
+  } finally {
+    database.close()
   }
 })
 
@@ -131,7 +180,7 @@ test('PostgreSQLの初期スキーマと共通契約', { skip: postgresUrl ? fal
   try {
     await client.query(`CREATE SCHEMA "${schema}"`)
     await client.query(`SET search_path TO "${schema}"`)
-    await client.query(migration('postgresql', 'up'))
+    await client.query(migration('postgresql', 1, 'up'))
     const adapter = {
       bool: value => value,
       run: async (sql, values = []) => client.query(postgresParameters(sql), values),
@@ -146,7 +195,7 @@ test('PostgreSQLの初期スキーマと共通契約', { skip: postgresUrl ? fal
       assert.deepEqual(await adapter.columns(table), columns)
     }
     await runContract(adapter)
-    await client.query(migration('postgresql', 'down'))
+    await client.query(migration('postgresql', 1, 'down'))
   } finally {
     await client.query('RESET search_path').catch(() => undefined)
     await client.query(`DROP SCHEMA IF EXISTS "${schema}" CASCADE`).catch(() => undefined)

@@ -15,7 +15,6 @@ export function App() {
   const [monthlyBudget, setMonthlyBudget] = useState(50000)
   const [monthlyNotification, setMonthlyNotification] = useState(true)
   const [startDay, setStartDay] = useState('1')
-  const [closingDay, setClosingDay] = useState('last')
   const [adjustHoliday, setAdjustHoliday] = useState(true)
   const homeModel: HomeViewModel = {
     month: 9,
@@ -33,20 +32,18 @@ export function App() {
     <div className="preview-shell">
       <div className="phone-preview">
         {screen === 'グラフ' && <GraphScreen onNavigate={navigate} />}
-        {screen === 'カレンダー' && <CalendarScreen onNavigate={navigate} startDay={startDay} closingDay={closingDay} />}
+        {screen === 'カレンダー' && <CalendarScreen onNavigate={navigate} startDay={startDay} adjustHoliday={adjustHoliday} />}
         {(screen === 'ホーム' || screen === '設定' || screen === '今月使える金額設定') && <HomeScreen model={homeModel} onNavigate={navigate} onOpenSettings={() => setScreen('設定')} />}
         {screen === '設定' && (
           <SettingsScreen
             budget={monthlyBudget}
             monthlyNotification={monthlyNotification}
             startDay={startDay}
-            closingDay={closingDay}
             adjustHoliday={adjustHoliday}
             onClose={() => setScreen('ホーム')}
             onOpenMoney={() => setScreen('今月使える金額設定')}
             onMonthlyNotificationChange={setMonthlyNotification}
             onStartDayChange={setStartDay}
-            onClosingDayChange={setClosingDay}
             onAdjustHolidayChange={setAdjustHoliday}
           />
         )}

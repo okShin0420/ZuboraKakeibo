@@ -4,12 +4,12 @@
 
 本書は、現行の画面モックを実データへ接続するときの機能構成を、画面操作からデータベースまで一続きで追跡できるように定義します。
 
-- 現在のMVPは、React／Capacitorから端末内SQLiteへ直接アクセスするローカル完結型です。
-- Spring Boot REST APIは、将来クラウド同期やプレミアム機能を追加するときの構成です。
-- ローカル実装とクラウド実装は、同じ画面入出力と業務ルールを提供します。
+- 今回の開発は、ReactクライアントからSpring Boot REST APIを呼び出し、SQLiteへ保存します。
+- Spring BootはController、Service、Spring Data JPA DAOのレイヤーで構成します。
+- PostgreSQL、クラウド同期、課金は今回の開発対象に含めません。
 - クラス名、メソッド名、DTO名は英語、画面名と説明は日本語で表記します。
 
-> 現行モックはReactのコンポーネント状態だけで動作しており、SQLiteおよびREST APIにはまだ接続していません。本書のController／Service／DAOは将来実装する設計上のインターフェースです。
+> 現行モックはReactのコンポーネント状態だけで動作しており、SQLiteおよびREST APIにはまだ接続していません。本書のController／Service／DAOは、今回実装するSpring Bootバックエンドの設計上のインターフェースです。
 
 ## 2. 対象画面
 
@@ -19,7 +19,7 @@
 | SCR-02 | 支出入力ボトムシート | 金額必須、メモ任意で支出を登録・編集する操作画面 |
 | SCR-03 | カレンダー | 日別支出合計と選択日の明細を確認する画面 |
 | SCR-04 | グラフ | 年内の月別残額を確認する画面 |
-| SCR-05 | 設定ボトムシート | 通知、月初め、締め日、土日祝調整を設定する画面 |
+| SCR-05 | 設定ボトムシート | 通知、月度の開始日、土日祝による終了日の自動調整を設定する画面 |
 | SCR-06 | 今月使える金額ボトムシート | 進行中期間の予算額を変更する画面 |
 
 カレンダーの日別明細は `SCR-03` 内の表示領域として扱い、独立画面にはしません。支出入力、設定、今月使える金額は画面上に重なるボトムシートですが、入出力と遷移を持つため独立した操作画面として扱います。
@@ -29,41 +29,30 @@
 ```mermaid
 flowchart LR
     UI[React UI\n6画面]
+    CLIENT[REST API Client]
+    CTRL[Spring REST Controller]
+    SVC[Spring Service]
+    DAO[Spring Data JPA DAO]
+    SQLITE[(SQLite)]
 
-    subgraph LOCAL[現在のMVP: 端末内で完結]
-        LUC[Use Case / Local Data Service]
-        LREPO[Capacitor SQLite Repository]
-        SQLITE[(端末内 SQLite)]
-        LUC --> LREPO --> SQLITE
-    end
+    UI -->|HTTP / JSON| CLIENT --> CTRL --> SVC --> DAO --> SQLITE
 
-    subgraph CLOUD[将来のクラウド構成]
-        CLIENT[REST API Client]
-        CTRL[Spring REST Controller]
-        SVC[Spring Service]
-        DAO[Spring Data JPA DAO]
-        PG[(PostgreSQL)]
-        CLIENT -->|HTTPS / JSON| CTRL --> SVC --> DAO --> PG
-    end
-
-    UI -->|MVPの実行経路| LUC
-    UI -.->|クラウド化後に切替可能| CLIENT
-
-    classDef current fill:#e8f7f5,stroke:#079da7,color:#0d393d,stroke-width:2px;
-    classDef future fill:#edf5ff,stroke:#1e90ff,color:#163a5f,stroke-width:1.5px,stroke-dasharray:5 3;
-    class LUC,LREPO,SQLITE current;
-    class CLIENT,CTRL,SVC,DAO,PG future;
+    classDef app fill:#e8f7f5,stroke:#079da7,color:#0d393d,stroke-width:2px;
+    classDef server fill:#edf5ff,stroke:#1e90ff,color:#163a5f,stroke-width:1.5px;
+    class UI,CLIENT app;
+    class CTRL,SVC,DAO,SQLITE server;
 ```
 
-### 3.1 経路の使い分け
+### 3.1 今回の技術境界
 
-| 項目 | MVP | 将来クラウド化後 |
+| 層 | 技術 | 責務 |
 | --- | --- | --- |
-| データ保存先 | 端末内SQLite | PostgreSQL。端末SQLiteとの同期方式は別設計 |
-| 画面からの呼び出し | ローカルUse Case／Repository | REST API Client |
-| Controller | 使用しない | Spring REST Controller |
-| Service | TypeScriptのローカル業務処理 | Spring Service |
-| DAO | Capacitor SQLite Repository | Spring Data JPA DAO |
+| UI | React・TypeScript | 画面状態、入力、APIレスポンスの表示 |
+| API Client | TypeScript | HTTPリクエスト、レスポンスDTOの受け取り |
+| Controller | Spring Boot | HTTP、Bean Validation、DTO変換 |
+| Service | Spring Boot | 期間計算、入力検証、トランザクション |
+| DAO | Spring Data JPA | SQLiteに対する永続化と検索 |
+| Database | SQLite | アプリデータの保存 |
 | アカウント | なし | 認証導入時に別途追加 |
 
 ## 4. 画面遷移図
@@ -101,7 +90,7 @@ flowchart TD
 
 ## 5. 画面機能一覧
 
-API欄は将来クラウド構成のエンドポイントです。MVPでは同じ入出力をローカルUse Caseへ渡し、REST通信は行いません。
+API欄は今回のSpring Boot開発環境で使用するエンドポイントです。画面はREST API Clientを通じて呼び出します。
 
 | 遷移前画面 | ボタン／リンク | 遷移後画面 | 画面への入力 | 画面の出力 | 将来API |
 | --- | --- | --- | --- | --- | --- |
@@ -118,13 +107,13 @@ API欄は将来クラウド構成のエンドポイントです。MVPでは同�
 | ホーム／カレンダー／グラフ | グラフタブ | グラフ | 表示年 | 月別予算、支出合計、残り金額 | `GET /api/v1/graphs/yearly?year=YYYY` |
 | グラフ | 前年／翌年 | グラフ | 表示年 | 切替後の月別集計 | `GET /api/v1/graphs/yearly?year=YYYY` |
 | グラフ | 月の棒 | グラフ | 対象月 | 選択線と対象月表示 | 追加APIなし |
-| ホーム | 設定アイコン | 設定 | なし | 通知、月初め、締め日、土日祝調整、現在予算 | `GET /api/v1/settings` |
-| 設定 | 通知／期間の各入力 | 設定 | 通知ON/OFF、月初め、締め日、土日祝調整 | 更新後設定、次期間の適用開始日 | `PUT /api/v1/settings` |
+| ホーム | 設定アイコン | 設定 | なし | 通知、月度の開始日、土日祝調整、今月度・次月度の範囲、現在予算 | `GET /api/v1/settings` |
+| 設定 | 通知／期間の各入力 | 設定 | 通知ON/OFF、月度の開始日、土日祝調整 | 更新後設定、今月度・次月度の実際の範囲 | `PUT /api/v1/settings` |
 | 設定 | 今月使える金額 | 今月使える金額 | 現在の予算額 | 編集中の予算額 | 既に取得した設定を使用 |
 | 今月使える金額 | 保存する | 設定 | 基準日、予算額 | 更新後の予算期間 | `PUT /api/v1/budgets/current` |
 | 各ボトムシート | 閉じる／背景タップ／Esc | 遷移元画面 | 編集途中の値 | 保存せず破棄 | APIなし |
 
-## 6. REST APIとSpring機能構成
+## 6. Spring Boot REST API機能構成
 
 ### 6.1 API一覧
 
@@ -180,7 +169,7 @@ ControllerはHTTP、Bean Validation、DTO変換だけを担当し、DBアクセ�
 
 ### 6.5 DAOクラス
 
-DAOはSpring Data JPAのRepositoryインターフェースとして定義します。`save` と `findById` は `JpaRepository` の標準メソッドを使用し、日付範囲・集計検索はJPQLまたはnative queryで定義します。
+DAOはSpring Data JPAのRepositoryインターフェースとして定義します。`save` と `findById` は `JpaRepository` の標準メソッドを使用し、日付範囲・集計検索はSQLite向けのJPQLまたはnative queryで定義します。
 
 | DAO | メソッド（引数）／出力 | 対象 |
 | --- | --- | --- |
@@ -199,7 +188,7 @@ DAOはSpring Data JPAのRepositoryインターフェースとして定義しま�
 | --- | --- | --- |
 | `CreateExpenseRequest` | `LocalDate spentOn`、`long amount`、`String memo` | 日付必須、金額1〜999,999,999、メモNULLまたは120文字以内 |
 | `UpdateExpenseRequest` | `LocalDate spentOn`、`long amount`、`String memo` | 登録時と同じ。空文字メモはNULLへ正規化 |
-| `UpdateSettingsRequest` | `boolean monthlyNotificationEnabled`、`int startDay`、`Integer closingDay`、`boolean adjustForWeekendsAndHolidays` | 開始日・締め日は1〜28、月末は`closingDay = null` |
+| `UpdateSettingsRequest` | `boolean monthlyNotificationEnabled`、`int startDay`、`boolean adjustForWeekendsAndHolidays` | 開始日は1〜31。存在しない日付は月末へ丸め、土日祝調整ONなら開始日を直前の平日へ調整。終了日は次月度の調整済み開始日の前日 |
 | `UpdateBudgetRequest` | `LocalDate asOf`、`long amount` | 基準日必須、金額1〜999,999,999 |
 
 ### 7.2 Response／Service Result
@@ -211,7 +200,7 @@ DAOはSpring Data JPAのRepositoryインターフェースとして定義しま�
 | `CalendarMonthResponse`／`CalendarMonthResult` | `month`、`periodStart`、`periodEnd`、`List<DailyExpenseTotal>` |
 | `DailyExpensesResponse`／`DailyExpensesResult` | `date`、`totalAmount`、`List<ExpenseResponse>` |
 | `YearlyBudgetSummaryResponse`／`YearlyBudgetSummaryResult` | `year`、`List<MonthlyBudgetSummary>` |
-| `SettingsResponse`／`SettingsResult` | `monthlyNotificationEnabled`、`timezone`、`startDay`、`closingDay`、`adjustForWeekendsAndHolidays`、`currentBudgetAmount`、`nextEffectiveFrom` |
+| `SettingsResponse`／`SettingsResult` | `monthlyNotificationEnabled`、`timezone`、`startDay`、`adjustForWeekendsAndHolidays`、`currentBudgetAmount`、`currentPeriodRange`、`nextPeriodRange` |
 | `BudgetResponse`／`BudgetResult` | `budgetPeriodId`、`labelMonth`、`budgetAmount`、`remainingAmount`、`updatedAt` |
 
 `MonthlyBudgetSummary` は `month`、`budgetAmount`、`spentAmount`、`remainingAmount`、`expenseCount` を持ちます。データがない月はServiceが0件の月として補完し、1月から12月の順で返します。
@@ -343,8 +332,8 @@ sequenceDiagram
 | テーブル／ビュー | 主な保持内容 | 更新する機能 | 参照する機能 |
 | --- | --- | --- | --- |
 | `app_settings` | 月初通知、タイムゾーン | FN-08 | FN-07 |
-| `budget_cycle_rules` | 月初め、締め日、土日祝調整、適用履歴 | FN-08 | FN-04、FN-07、FN-08 |
-| `budget_periods` | 対象月、開始日、締め日、予算額 | FN-09。期間生成時はFN-08に関連 | FN-01〜FN-04、FN-06、FN-07、FN-09 |
+| `budget_cycle_rules` | 月度の開始日、土日祝調整、適用履歴 | FN-08 | FN-04、FN-07、FN-08 |
+| `budget_periods` | 月度の開始日、予定終了日、実際の終了日、予算額 | FN-09。期間生成時はFN-08に関連 | FN-01〜FN-04、FN-06、FN-07、FN-09 |
 | `expenses` | 利用日、金額、任意メモ | FN-02、FN-03 | FN-01、FN-04〜FN-06 |
 | `holiday_calendar_coverage` | 年単位の祝日データ完全性 | 祝日取込処理（本書の画面外） | FN-08、期間生成処理 |
 | `holidays` | 日本の祝日の日付、名称、出典 | 祝日取込処理（本書の画面外） | FN-08、期間生成処理 |
@@ -356,9 +345,9 @@ sequenceDiagram
 
 - 金額は日本円の整数で、`1`〜`999,999,999` とします。
 - メモは任意で120文字以内、空文字はServiceでNULLへ正規化します。
-- 支出日は所属する予算期間の開始日以上、実際の締め日以下とします。
-- 月初めと締め日は1〜28、月末締めはNULLとします。
-- 土日祝調整がONの場合、対象年の `holiday_calendar_coverage` がなければ期間を生成しません。
+- 支出日は所属する予算期間の開始日以上、実際の終了日以下とします。
+- 月度の開始日は1〜31とし、存在しない日付は月末へ丸めます。土日祝調整ONでは開始日を直前の平日へ調整し、終了日は次月度の調整済み開始日の前日として月度を連続させます。
+- 土日祝調整がONの場合、予定終了日の対象年の `holiday_calendar_coverage` がなければ期間を生成しません。
 - 新しい予算期間・ルールの有効期間が既存データと重複する場合は拒否します。
 - 予算超過による負の残額は正常値として許可します。
 
@@ -376,28 +365,27 @@ sequenceDiagram
 | `400 Bad Request` | 形式・Bean Validation不正 | 金額0、メモ121文字、存在しない日付、開始日29 |
 | `404 Not Found` | 対象データが存在しない | 支出ID不明、対象日に予算期間がない |
 | `409 Conflict` | 既存状態との競合 | 予算期間またはルールの有効期間が重複 |
-| `422 Unprocessable Entity` | 形式は正しいが業務条件を満たさない | 支出日が期間外、祝日カバレッジ不足、調整後締め日が開始日前 |
+| `422 Unprocessable Entity` | 形式は正しいが業務条件を満たさない | 支出日が期間外、祝日カバレッジ不足、調整後の終了日が開始日前 |
 | `500 Internal Server Error` | 想定外の処理失敗 | DB接続障害など |
 
 エラーレスポンスは `ErrorResponse { code, message, fieldErrors, timestamp }` に統一します。ユーザー向けメッセージは責める表現を避け、画面で再入力できる内容にします。
 
-## 11. ローカルSQLiteとの対応
+## 11. SQLite実装方針
 
-ローカルMVPにはSpring Controllerを配置しません。React画面から呼び出すローカルUse Caseは、Service Resultと同等のデータを返します。
+今回の開発で使用するDBはSQLiteのみです。Spring BootのDAOはSQLiteに接続し、画面はすべてSpring Boot REST APIを経由します。
 
-| ローカルUse Case | 将来のSpring Service |
+| 項目 | 方針 |
 | --- | --- |
-| `getHome(asOf)` | `HomeService.getHome(asOf)` |
-| `createExpense(draft)` | `ExpenseService.createExpense(command)` |
-| `updateExpense(id, draft)` | `ExpenseService.updateExpense(id, command)` |
-| `getMonthlyCalendar(month)` | `CalendarService.getMonthlyCalendar(month)` |
-| `getDailyExpenses(date)` | `CalendarService.getDailyExpenses(date)` |
-| `getYearlySummary(year)` | `GraphService.getYearlySummary(year)` |
-| `getSettings(asOf)` | `SettingsService.getSettings(asOf)` |
-| `updateSettings(command)` | `SettingsService.updateSettings(command)` |
-| `updateCurrentBudget(asOf, amount)` | `BudgetService.updateCurrentBudget(asOf, amount)` |
+| JDBC | SQLite JDBCドライバーを使用する |
+| ORM | Spring Data JPA。SQLite対応Dialectを明示設定する |
+| スキーマ変更 | FlywayのSQLite対応モジュールと、SQLite用バージョン付きSQLを使用する |
+| 外部キー | 接続開始時に `PRAGMA foreign_keys = ON` を有効にする |
+| UUID | Javaアプリケーション側で生成し、SQLiteの`TEXT`列へ保存する |
+| 日付・日時 | 日付は`YYYY-MM-DD`、日時はUTC ISO 8601文字列としてSQLiteへ保存する |
+| 金額 | SQLiteの64bit `INTEGER`。日本円の正の整数として扱う |
+| マイグレーション管理 | `PRAGMA user_version` とFlywayの履歴を同期して管理する |
 
-SQLite接続時は毎回 `PRAGMA foreign_keys = ON` を有効にします。UUIDとUTC日時はアプリケーション側で生成し、SQLiteとPostgreSQLで主キーと時刻表現を揃えます。
+PostgreSQL接続、クラウド同期、端末SQLiteとの同期は今回の対象外です。将来それらを追加する場合も、Controller・Serviceの公開DTOと業務ルールは維持し、DAO実装と接続設定を追加または切り替えます。
 
 ## 12. 対象外
 
@@ -410,4 +398,3 @@ SQLite接続時は毎回 `PRAGMA foreign_keys = ON` を有効にします。UUID
 - プレミアム課金
 - レシート・購入品写真による自動入力
 - 月次レポート詳細画面
-

@@ -2,13 +2,12 @@
 
 ## 1. 目的と方針
 
-ズボラ会計簿は、アカウントを作らずスマートフォン内で完結するアプリです。本番は端末内 SQLite、開発と将来のクラウド移行確認には PostgreSQL を使用します。
+ズボラ会計簿は、アカウントを作らずスマートフォン内で完結するアプリです。今回の開発ではSpring BootからSQLiteを使用し、PostgreSQL接続は行いません。
 
 - データの所有者は端末内の1利用者のみとし、現時点ではユーザーテーブルを持ちません。
 - 金額は日本円の整数で保存します。
-- UUIDと日時はJavaScriptで生成し、DB固有の生成関数には依存しません。
+- UUIDと日時はアプリケーション層で生成し、DB固有の生成関数には依存しません。
 - 日付は `YYYY-MM-DD`、日時はUTCのISO 8601を共通表現とします。
-- PostgreSQL固有のENUM、配列、JSON、排他制約、更新トリガーは使用しません。
 - 複数行を変更する処理と期間重複検証は、Repositoryのトランザクション内で行います。
 
 ## 2. ER図
@@ -27,7 +26,6 @@ erDiagram
     BUDGET_CYCLE_RULES {
         uuid id PK
         integer start_day
-        integer closing_day "NULL means month end"
         boolean adjust_for_weekends_and_holidays
         date effective_from
         date effective_to
@@ -86,18 +84,18 @@ erDiagram
 
 やりくり期間の設定履歴です。設定変更時は現在のルールを次期間開始日の前日で終了させ、次期間開始日から有効な新しい行を作成します。
 
-- `start_day`: 1〜28
-- `closing_day`: 1〜28。月末はNULL
+- `start_day`: 1〜31。存在しない日付は月末へ丸める
 - `effective_to`: NULLなら現在または将来まで有効
 - 有効期間の重複はRepositoryのトランザクション内で検証
 
 ### budget_periods
 
-実際に使用する予算期間です。ルールを参照しつつ、開始日と締め日をスナップショットとして保持するため、後から設定を変更しても過去の表示は変わりません。
+実際に使用する月度の期間です。ルールを参照しつつ、開始日と終了日をスナップショットとして保持するため、後から設定を変更しても過去の表示は変わりません。
 
-- `label_month`: 締め日の属する月の1日。例：2026年9月分は `2026-09-01`
-- `nominal_end_date`: 土日祝調整前の締め日
-- `end_date`: 実際の締め日
+- `label_month`: 月度の開始月の1日。例：2026年9月度は `2026-09-01`
+- `start_date`: `label_month` の `start_day` 日を月末へ丸めた後、土日祝調整ONなら直前の平日へ調整した日
+- `nominal_end_date`: 翌月の開始予定日の前日。開始予定日は `start_day` を翌月末へ丸めた日
+- `end_date`: 次月度の調整済み `start_date` の前日。隣接する月度との空白・重複を作らない
 - `budget_amount`: 1以上の日本円整数
 - 次期間の初期金額は直前期間の `budget_amount` を引き継ぐ
 - 進行中期間の金額変更は同じ行を更新する
@@ -119,27 +117,26 @@ erDiagram
 
 ## 4. 型対応
 
-| 論理型 | SQLite | PostgreSQL | JavaScript |
-| --- | --- | --- | --- |
-| UUID | `TEXT` | `UUID` | string |
-| 金額 | `INTEGER` | `BIGINT` | safe integer number |
-| 日付 | `TEXT` | `DATE` | `YYYY-MM-DD` string |
-| 日時 | `TEXT` | `TIMESTAMPTZ` | UTC ISO 8601 string |
-| 真偽値 | `INTEGER` 0/1 | `BOOLEAN` | boolean |
-| 任意メモ | `TEXT NULL` | `VARCHAR(120) NULL` | string \| null |
+| 論理型 | SQLite | Java |
+| --- | --- | --- |
+| UUID | `TEXT` | `UUID` |
+| 金額 | `INTEGER` | `long` |
+| 日付 | `TEXT` | `LocalDate` |
+| 日時 | `TEXT` | `Instant` |
+| 真偽値 | `INTEGER` 0/1 | `boolean` |
+| 任意メモ | `TEXT NULL` | `String` または `null` |
 
-金額入力の上限は現在9桁のためJavaScriptの安全整数範囲内です。PostgreSQLの `BIGINT` はドライバーから文字列で返る場合があるため、Repository境界で安全整数を確認してnumberへ変換します。
+金額入力の上限は現在9桁のためSQLiteの64bit整数とJavaの`long`の範囲内です。
 
 ## 5. 予算期間の生成規則
 
-1. `label_month` の年月に `closing_day` を適用し、NULLなら月末を `nominal_end_date` とします。
-2. `start_day <= nominal_end_dateの日` なら同じ月、それ以外は前月に開始日を置きます。
-3. 自動調整ONの場合、対象年の祝日coverageを確認します。
-4. 締め日が土日または祝日なら、平日かつ非祝日になるまで1日ずつ戻します。
-5. 調整後締め日が開始日より前になる設定は拒否します。
-6. 既存期間と日付範囲が重なる場合は、期間を作成しません。
+1. `start_day` は1〜31です。各月の開始予定日は `min(start_day, その月の末日)` とします。
+2. 自動調整ONの場合、開始予定日の対象年の祝日coverageを確認し、土日または祝日なら平日かつ非祝日になるまで1日ずつ戻して `start_date` とします。
+3. 翌月の開始予定日の前日を `nominal_end_date` とします。
+4. 次月度の調整済み `start_date` の前日を `end_date` とし、月度を連続させます。
+5. 調整で終了日が開始日より前にならず、既存期間と日付範囲が重ならない場合のみ期間を作成します。
 
-期間計算は `backend/src/domain/budget-periods.js` を唯一の実装とし、DBごとに計算を分けません。
+期間計算はSpring Bootの `BudgetPeriodService` に一元化します。既存の `backend/src/domain/budget-periods.js` は移植時の検証用参照とし、同じテストケースをJavaのServiceテストへ移します。
 
 ## 6. 集計
 
@@ -154,7 +151,7 @@ erDiagram
 
 ## 7. Repository境界
 
-スマホのSQLite実装と開発用PostgreSQL実装は、次の操作を同じ入出力で提供します。
+Spring BootのSQLite DAOは、次の操作をServiceへ提供します。
 
 - 現在の予算期間とサマリー取得
 - 進行中期間の予算更新
@@ -167,8 +164,8 @@ SQLite接続時は毎回 `PRAGMA foreign_keys = ON` を実行します。複数�
 
 ## 8. マイグレーションと将来移行
 
-- SQLiteとPostgreSQLは同じ番号のup/down SQLを持ちます。
-- SQLiteのバージョンは `PRAGMA user_version` で管理します。
-- UUIDを端末側で生成するため、クラウド移行時も主キーを維持できます。
+- 今回はSQLite用のバージョン付きSQLだけを適用します。SQLiteのバージョンは `PRAGMA user_version` で管理します。
+- Spring Boot側ではFlywayのSQLite対応モジュールでマイグレーションを実行します。
+- UUIDをアプリケーション側で生成するため、将来クラウドへ移行するときも主キーを維持できます。
 - クラウド化時に所有者ID、同期状態、削除済み情報を追加します。現在のMVPには先行追加しません。
 - SQLiteファイル、DB接続情報、実データはリポジトリへコミットしません。

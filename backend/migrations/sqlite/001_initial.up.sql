@@ -15,7 +15,6 @@ CREATE TABLE app_settings (
 CREATE TABLE budget_cycle_rules (
   id TEXT PRIMARY KEY CHECK (length(id) = 36),
   start_day INTEGER NOT NULL CHECK (start_day BETWEEN 1 AND 28),
-  closing_day INTEGER CHECK (closing_day BETWEEN 1 AND 28),
   adjust_for_weekends_and_holidays INTEGER NOT NULL DEFAULT 1
     CHECK (adjust_for_weekends_and_holidays IN (0, 1)),
   effective_from TEXT NOT NULL CHECK (length(effective_from) = 10),
