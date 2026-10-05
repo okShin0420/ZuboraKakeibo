@@ -1,6 +1,24 @@
 import { expect, test } from '@playwright/test'
+import { installApiMock } from './api-fixture'
 
-test('固定値・3タブ・素材が表示される', async ({ page }) => {
+test.beforeEach(async ({ page }) => {
+  await page.clock.setFixedTime(new Date('2026-09-21T03:00:00Z'))
+  await installApiMock(page)
+})
+
+test('空のDBでは初期予算を登録してホームへ進む', async ({ page }) => {
+  await installApiMock(page, false)
+  await page.goto('/')
+  const dialog = page.getByRole('dialog', { name: '今月使える金額' })
+  await expect(dialog).toBeVisible()
+  await dialog.getByRole('button', { name: '5を入力' }).click()
+  for (let index = 0; index < 4; index += 1) await dialog.getByRole('button', { name: '0を入力' }).click()
+  await dialog.getByRole('button', { name: '保存する' }).click()
+  await expect(dialog).toHaveCount(0)
+  await expect(page.getByLabel('残り予算 50,000円')).toBeVisible()
+})
+
+test('APIのホーム応答・3タブ・素材が表示される', async ({ page }) => {
   await page.goto('/')
   await expect(page.getByLabel('残り予算 48,200円')).toBeVisible()
   await expect(page.getByText('残り 10 日')).toBeVisible()
@@ -9,8 +27,7 @@ test('固定値・3タブ・素材が表示される', async ({ page }) => {
   for (const name of ['ホーム', 'カレンダー', 'グラフ']) await expect(page.getByRole('button', { name, exact: true })).toBeVisible()
   await expect(page.getByText('1日あたり')).toHaveCount(0)
   await expect(page.locator('.dog img')).toHaveCount(3)
-  const loaded = await page.locator('.dog img').evaluateAll(images => images.every(img => (img as HTMLImageElement).complete && (img as HTMLImageElement).naturalWidth > 0))
-  expect(loaded).toBe(true)
+  await expect.poll(() => page.locator('.dog img').evaluateAll(images => images.every(img => (img as HTMLImageElement).complete && (img as HTMLImageElement).naturalWidth > 0))).toBe(true)
 })
 
 for (const viewport of [{ width: 320, height: 667 }, { width: 390, height: 844 }, { width: 1440, height: 1000 }]) {
@@ -65,8 +82,8 @@ test('支出ボトムシート・4つの閉じ方・破棄・フォーカス復�
     if (close === 'save') await page.getByRole('button', { name: '保存する' }).click()
     await expect(dialog).toHaveCount(0)
     await expect(record).toBeFocused()
-    await expect(page.getByLabel('残り予算 48,200円')).toBeVisible()
-    await expect(page.getByText('¥1,200')).toBeVisible()
+    await expect(page.getByLabel(close === 'save' ? '残り予算 47,000円' : '残り予算 48,200円')).toBeVisible()
+    await expect(page.getByText(close === 'save' ? '¥2,400' : '¥1,200')).toBeVisible()
   }
   expect(await page.evaluate(() => localStorage.length)).toBe(0)
 })
@@ -76,11 +93,14 @@ test('モーダルにフォーカスが留まり、動きを減らせる', async
   await page.goto('/')
   for (const selector of ['.dog', '.dog-head', '.dog-blink']) expect(await page.locator(selector).evaluate(el => getComputedStyle(el).animationName)).toBe('none')
   await page.getByRole('button', { name: '入力する', exact: true }).click()
-  await page.getByRole('button', { name: '保存する' }).focus()
+  await page.getByRole('button', { name: '使った金額 0円' }).click()
+  await page.getByRole('button', { name: '1を入力' }).click()
+  const lastControl = page.getByRole('region', { name: '金額入力キーパッド' }).getByRole('button').last()
+  await lastControl.focus()
   await page.keyboard.press('Tab')
   await expect(page.getByRole('button', { name: '閉じる', exact: true })).toBeFocused()
   await page.keyboard.press('Shift+Tab')
-  await expect(page.getByRole('button', { name: '保存する' })).toBeFocused()
+  await expect(lastControl).toBeFocused()
   await expect(page.getByRole('dialog')).toHaveAttribute('aria-labelledby', 'expense-title')
 })
 
@@ -130,7 +150,7 @@ test('主要画面を移動し、設定した月予算をホームへ反映す�
   await yearDialog.getByRole('radio', { name: '2026年' }).click()
   await expect(yearDialog).toHaveCount(0)
   await page.getByRole('button', { name: '2026年9月、9,400円' }).click()
-  await expect(page.getByText('¥9,400')).toBeVisible()
+  await expect(page.locator('.graph-summary strong')).toHaveText('¥9,400')
 
   await page.getByRole('button', { name: 'ホーム', exact: true }).click()
   await expect(page.getByLabel('残り予算 58,200円')).toBeVisible()

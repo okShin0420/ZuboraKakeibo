@@ -94,7 +94,7 @@ erDiagram
 
 - `label_month`: 月度の開始月の1日。例：2026年9月度は `2026-09-01`
 - `start_date`: `label_month` の `start_day` 日を月末へ丸めた後、土日祝調整ONなら直前の平日へ調整した日
-- `nominal_end_date`: 翌月の開始予定日の前日。開始予定日は `start_day` を翌月末へ丸めた日
+- `nominal_end_date`: 次月度の開始予定日の前日。次月度に新ルールを適用する場合は、その新ルールの `start_day` を翌月末へ丸めた日から求める
 - `end_date`: 次月度の調整済み `start_date` の前日。隣接する月度との空白・重複を作らない
 - `budget_amount`: 1以上の日本円整数
 - 次期間の初期金額は直前期間の `budget_amount` を引き継ぐ
@@ -126,13 +126,15 @@ erDiagram
 | 真偽値 | `INTEGER` 0/1 | `boolean` |
 | 任意メモ | `TEXT NULL` | `String` または `null` |
 
+`holidays.holiday_date` はSQLite上で `YYYY-MM-DD` 形式の `TEXT` 主キーです。Hibernateの識別子変換がSQLite向け `TEXT` 制約と一致しないため、`HolidayEntity`ではこの列のみ `String`（ISO日付）として保持し、期間計算側の `LocalDate` は `toString()` でDAOのIDに変換します。
+
 金額入力の上限は現在9桁のためSQLiteの64bit整数とJavaの`long`の範囲内です。
 
 ## 5. 予算期間の生成規則
 
 1. `start_day` は1〜31です。各月の開始予定日は `min(start_day, その月の末日)` とします。
 2. 自動調整ONの場合、開始予定日の対象年の祝日coverageを確認し、土日または祝日なら平日かつ非祝日になるまで1日ずつ戻して `start_date` とします。
-3. 翌月の開始予定日の前日を `nominal_end_date` とします。
+3. 次月度の開始予定日の前日を `nominal_end_date` とします。ルール変更時は次月度に適用する新ルールで計算し、進行中月度の `nominal_end_date` も更新します。
 4. 次月度の調整済み `start_date` の前日を `end_date` とし、月度を連続させます。
 5. 調整で終了日が開始日より前にならず、既存期間と日付範囲が重ならない場合のみ期間を作成します。
 
@@ -164,8 +166,9 @@ SQLite接続時は毎回 `PRAGMA foreign_keys = ON` を実行します。複数�
 
 ## 8. マイグレーションと将来移行
 
-- 今回はSQLite用のバージョン付きSQLだけを適用します。SQLiteのバージョンは `PRAGMA user_version` で管理します。
-- Spring Boot側ではFlywayのSQLite対応モジュールでマイグレーションを実行します。
+- Spring Boot実行時はFlywayのバージョン付きSQL／Javaマイグレーションを適用し、`flyway_schema_history` をスキーマバージョンの正とします。
+- 新規DBは、開始日1〜31日対応を含むFlywayのV1を適用します。旧Node.jsマイグレーション済みのDBは、1〜31日対応のスキーマを確認してからFlywayのV1へ引き継ぎます。
+- 開始日が1〜28日の旧v1 DBは自動引き継ぎしません。バックアップ後に別途スキーマを1〜31日へ移行する必要があります。
 - UUIDをアプリケーション側で生成するため、将来クラウドへ移行するときも主キーを維持できます。
 - クラウド化時に所有者ID、同期状態、削除済み情報を追加します。現在のMVPには先行追加しません。
 - SQLiteファイル、DB接続情報、実データはリポジトリへコミットしません。

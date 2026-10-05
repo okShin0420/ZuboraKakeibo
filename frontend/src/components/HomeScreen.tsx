@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { PawPrint } from 'lucide-react'
-import type { HomeViewModel } from '../types'
+import type { ExpenseDraft, HomeViewModel } from '../types'
 import { SettingsGearIcon, TodayExpenseIcon } from './AppIcons'
 import { BottomNavigation, type NavigationTab } from './BottomNavigation'
 import { DogGrowthScene } from './DogGrowthScene'
@@ -8,10 +8,11 @@ import { ExpenseInputModal } from './ExpenseInputModal'
 
 const yen = (value: number) => new Intl.NumberFormat('ja-JP').format(value)
 
-export function HomeScreen({ model, onNavigate, onOpenSettings }: {
+export function HomeScreen({ model, onNavigate, onOpenSettings, onSaveExpense }: {
   model: HomeViewModel
   onNavigate: (tab: NavigationTab) => void
   onOpenSettings: () => void
+  onSaveExpense: (draft: ExpenseDraft) => Promise<void>
 }) {
   const [modalOpen, setModalOpen] = useState(false)
 
@@ -47,7 +48,7 @@ export function HomeScreen({ model, onNavigate, onOpenSettings }: {
       </main>
 
       <BottomNavigation activeTab="ホーム" onNavigate={onNavigate} />
-      {modalOpen && <ExpenseInputModal onClose={() => setModalOpen(false)} />}
+      {modalOpen && <ExpenseInputModal onClose={() => setModalOpen(false)} onSave={onSaveExpense} />}
     </>
   )
 }

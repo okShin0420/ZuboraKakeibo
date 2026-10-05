@@ -51,6 +51,8 @@ if (dialect === 'sqlite') {
 
   try {
     database.exec('PRAGMA foreign_keys = ON;')
+    const flywayHistory = database.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'flyway_schema_history'").get()
+    if (flywayHistory) throw new Error('Flyway管理のSQLiteです。Spring Bootを起動してマイグレーションしてください')
     const currentVersion = database.prepare('PRAGMA user_version').get().user_version
     const migrations = migrationsFor('sqlite')
     const latestVersion = migrations.at(-1)?.version ?? 0

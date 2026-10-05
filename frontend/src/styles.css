@@ -321,6 +321,10 @@ button[data-pressed='true'] { background: var(--accent-soft); box-shadow: 0 0 0 
 .expense-keypad { margin-top: 18px; }
 .preview-caption { margin: 16px 0 0; color: #65716e; font-size: 12px; }
 .preview-caption span { opacity: .45; }
+.app-state { min-height: 65dvh; display: grid; align-content: center; justify-items: center; gap: 16px; padding: 24px; text-align: center; color: var(--text); }
+.app-state button { min-height: 44px; padding: 0 20px; border-radius: 22px; background: var(--accent); color: white; }
+.api-inline-error { margin: 12px 0; padding: 10px 12px; border-radius: 10px; background: #fff0ef; color: #a32929; font-size: 13px; line-height: 1.5; }
+.api-loading { margin: 12px; color: var(--muted); font-size: 13px; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
 
 @keyframes breathe { 0%,100% { transform: scale(1) translateY(0); } 50% { transform: scale(1.012,.994) translateY(1px); } }
