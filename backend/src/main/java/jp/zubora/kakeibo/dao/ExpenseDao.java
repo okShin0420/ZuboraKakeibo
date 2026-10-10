@@ -16,6 +16,8 @@ public interface ExpenseDao extends JpaRepository<ExpenseEntity, UUID> {
 
     boolean existsByBudgetPeriodIdAndSpentOnAfter(UUID budgetPeriodId, LocalDate date);
 
+    boolean existsByBudgetPeriodId(UUID budgetPeriodId);
+
     @Query("select coalesce(sum(e.amount), 0) from ExpenseEntity e where e.spentOn = :date")
     long sumAmountBySpentOn(@Param("date") LocalDate date);
 

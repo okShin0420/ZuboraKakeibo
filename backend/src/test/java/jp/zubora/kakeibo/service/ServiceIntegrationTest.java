@@ -145,6 +145,10 @@ class ServiceIntegrationTest {
         assertEquals(57_700, homeService.getHome(TODAY).remainingAmount());
         assertEquals(0, homeService.getHome(TODAY).todayExpense());
         assertEquals(2_300, calendarService.getDailyExpenses(LocalDate.of(2026, 9, 22)).totalAmount());
+        expenseService.deleteExpense(first.id());
+        refreshQueries();
+        assertEquals(800, calendarService.getDailyExpenses(LocalDate.of(2026, 9, 22)).totalAmount());
+        assertEquals(59_200, homeService.getHome(TODAY).remainingAmount());
     }
 
     @Test
@@ -157,31 +161,123 @@ class ServiceIntegrationTest {
     }
 
     @Test
-    void changedRuleCreatesContiguousPeriodsAndCarriesBudgetForward() {
-        var updated = settingsService.updateSettings(new UpdateSettingsCommand(true, 20, false));
-        assertEquals(20, updated.startDay());
-        assertEquals(LocalDate.of(2026, 10, 19), updated.currentPeriodRange().endDate());
-        assertEquals(LocalDate.of(2026, 10, 20), updated.nextPeriodRange().startDate());
-        assertEquals(2, periodDao.count());
-        assertEquals(2, ruleDao.count());
-        assertEquals(50_000, periodDao.findByLabelMonth(LocalDate.of(2026, 10, 1))
-                .orElseThrow().getBudgetAmount());
-        assertEquals(LocalDate.of(2026, 10, 19), ruleDao.findById(RULE_ID).orElseThrow().getEffectiveTo());
-        assertFalse(settingsService.updateSettings(new UpdateSettingsCommand(false, 20, false))
-                .monthlyNotificationEnabled());
-        assertEquals(2, periodDao.count());
-        assertThrows(PeriodConflictException.class,
-                () -> settingsService.updateSettings(new UpdateSettingsCommand(false, 21, false)));
+    void calendarIncludesNextCalendarMonthInsideTheSamePeriod() {
+        expenseService.createExpense(new CreateExpenseCommand(LocalDate.of(2026, 10, 10), 900, null));
+        refreshQueries();
+        var calendar = calendarService.getMonthlyCalendar(YearMonth.of(2026, 9));
+        assertEquals(LocalDate.of(2026, 9, 18), calendar.periodStart());
+        assertEquals(LocalDate.of(2026, 10, 17), calendar.periodEnd());
+        assertEquals(LocalDate.of(2026, 10, 10), calendar.dailyTotals().get(0).date());
+        assertEquals(900, calendar.dailyTotals().get(0).totalAmount());
     }
 
     @Test
-    void earlierBoundaryRejectsAnExistingExpenseWithoutReassigningIt() {
+    void calendarCreatesDecember2026PeriodOnDemand() {
+        var december = calendarService.getMonthlyCalendar(YearMonth.of(2026, 12));
+        assertEquals(LocalDate.of(2026, 12, 18), december.periodStart());
+        assertEquals(LocalDate.of(2027, 1, 17), december.periodEnd());
+        assertEquals(0, periodDao.findByLabelMonth(LocalDate.of(2026, 12, 1)).orElseThrow().getBudgetAmount());
+    }
+
+    @Test
+    void changedRuleUpdatesCurrentPeriodAndLazilyCreatesUnbudgetedPreviousPeriod() {
+        var updated = settingsService.updateSettings(new UpdateSettingsCommand(true, 20, false));
+        calendarService.getMonthlyCalendar(YearMonth.of(2026, 8));
+        assertEquals(20, updated.startDay());
+        assertEquals(LocalDate.of(2026, 9, 20), updated.currentPeriodRange().startDate());
+        assertEquals(LocalDate.of(2026, 9, 19), periodDao.findByLabelMonth(LocalDate.of(2026, 8, 1))
+                .orElseThrow().getEndDate());
+        assertEquals(LocalDate.of(2026, 10, 19), updated.currentPeriodRange().endDate());
+        assertEquals(LocalDate.of(2026, 10, 20), updated.nextPeriodRange().startDate());
+        assertEquals(2, periodDao.count());
+        assertEquals(1, ruleDao.count());
+        assertEquals(0, periodDao.findByLabelMonth(LocalDate.of(2026, 8, 1))
+                .orElseThrow().getBudgetAmount());
+        assertEquals(LocalDate.of(2026, 8, 20), periodDao.findByLabelMonth(LocalDate.of(2026, 8, 1))
+                .orElseThrow().getStartDate());
+        assertEquals(0, graphService.getYearlySummary(2026).monthlySummaries().get(7).budgetAmount());
+        assertNull(ruleDao.findById(RULE_ID).orElseThrow().getEffectiveTo());
+        assertFalse(settingsService.updateSettings(new UpdateSettingsCommand(false, 20, false))
+                .monthlyNotificationEnabled());
+        assertEquals(2, periodDao.count());
+        var changedAgain = settingsService.updateSettings(new UpdateSettingsCommand(false, 21, false));
+        assertEquals(21, changedAgain.startDay());
+        assertEquals(LocalDate.of(2026, 9, 21), changedAgain.currentPeriodRange().startDate());
+        assertEquals(LocalDate.of(2026, 10, 20), changedAgain.currentPeriodRange().endDate());
+        assertEquals(LocalDate.of(2026, 10, 21), changedAgain.nextPeriodRange().startDate());
+        assertEquals(2, periodDao.count());
+        assertEquals(1, ruleDao.count());
+        expenseService.createExpense(new CreateExpenseCommand(TODAY, 100, null));
+        var moved = settingsService.updateSettings(new UpdateSettingsCommand(false, 22, false));
+        assertEquals(LocalDate.of(2026, 8, 1), moved.currentPeriodRange().labelMonth());
+        refreshQueries();
+        assertEquals(-100, homeService.getHome(TODAY).remainingAmount());
+        assertEquals(50_000, graphService.getYearlySummary(2026).monthlySummaries().get(8).remainingAmount());
+    }
+
+    @Test
+    void earlierBoundaryReassignsAnExistingExpenseToFollowingPeriod() {
         expenseService.createExpense(new CreateExpenseCommand(LocalDate.of(2026, 10, 17), 500, null));
         refreshQueries();
-        assertThrows(PeriodConflictException.class,
-                () -> settingsService.updateSettings(new UpdateSettingsCommand(true, 15, false)));
+        settingsService.updateSettings(new UpdateSettingsCommand(true, 15, false));
+        refreshQueries();
         assertEquals(1, expenseDao.count());
-        assertEquals(1, periodDao.count());
+        assertEquals(LocalDate.of(2026, 10, 15), periodDao.findByLabelMonth(LocalDate.of(2026, 10, 1))
+                .orElseThrow().getStartDate());
+        assertEquals(-500, graphService.getYearlySummary(2026).monthlySummaries().get(9).remainingAmount());
+    }
+
+    @Test
+    void changingStartDayRebuildsPastMonthsAndMovesExpenseWithoutChangingBudgets() {
+        calendarService.getMonthlyCalendar(YearMonth.of(2026, 8));
+        budgetService.updateCurrentBudget(LocalDate.of(2026, 8, 20), 7_000);
+        var expense = expenseService.createExpense(new CreateExpenseCommand(
+                LocalDate.of(2026, 9, 10), 1_000, "保存済み"));
+        refreshQueries();
+        assertEquals(6_000, graphService.getYearlySummary(2026).monthlySummaries().get(7).remainingAmount());
+
+        settingsService.updateSettings(new UpdateSettingsCommand(true, 8, false));
+        refreshQueries();
+        var august = periodDao.findByLabelMonth(LocalDate.of(2026, 8, 1)).orElseThrow();
+        var september = periodDao.findByLabelMonth(LocalDate.of(2026, 9, 1)).orElseThrow();
+        assertEquals(LocalDate.of(2026, 8, 8), august.getStartDate());
+        assertEquals(LocalDate.of(2026, 9, 7), august.getEndDate());
+        assertEquals(LocalDate.of(2026, 9, 8), september.getStartDate());
+        assertEquals(LocalDate.of(2026, 10, 7), september.getEndDate());
+        assertEquals(7_000, august.getBudgetAmount());
+        assertEquals(50_000, september.getBudgetAmount());
+        assertEquals(september.getId(), expenseDao.findById(expense.id()).orElseThrow().getBudgetPeriodId());
+        assertEquals(7_000, graphService.getYearlySummary(2026).monthlySummaries().get(7).remainingAmount());
+        assertEquals(49_000, homeService.getHome(TODAY).remainingAmount());
+        assertEquals(1_000, calendarService.getMonthlyCalendar(YearMonth.of(2026, 9)).dailyTotals().get(0).totalAmount());
+    }
+
+    @Test
+    void existingFollowingPeriodKeepsItsBudgetWhileExpensesMoveByDate() {
+        BudgetPeriodEntity october = new BudgetPeriodEntity();
+        october.setId(UUID.randomUUID());
+        october.setCycleRuleId(RULE_ID);
+        october.setLabelMonth(LocalDate.of(2026, 10, 1));
+        october.setStartDate(LocalDate.of(2026, 10, 18));
+        october.setNominalEndDate(LocalDate.of(2026, 11, 17));
+        october.setEndDate(LocalDate.of(2026, 11, 17));
+        october.setBudgetAmount(7_000);
+        october.setCreatedAt(NOW);
+        october.setUpdatedAt(NOW);
+        periodDao.save(october);
+        refreshQueries();
+        var expense = expenseService.createExpense(new CreateExpenseCommand(LocalDate.of(2026, 10, 18), 1_000, "買い物"));
+        settingsService.updateSettings(new UpdateSettingsCommand(true, 20, false));
+        refreshQueries();
+        var september = periodDao.findByLabelMonth(LocalDate.of(2026, 9, 1)).orElseThrow();
+        var octoberAfter = periodDao.findByLabelMonth(LocalDate.of(2026, 10, 1)).orElseThrow();
+        assertEquals(LocalDate.of(2026, 10, 19), september.getEndDate());
+        assertEquals(LocalDate.of(2026, 10, 20), octoberAfter.getStartDate());
+        assertEquals(7_000, octoberAfter.getBudgetAmount());
+        assertEquals(september.getId(), expenseDao.findById(expense.id()).orElseThrow().getBudgetPeriodId());
+        assertEquals(49_000, homeService.getHome(TODAY).remainingAmount());
+        assertEquals(7_000, graphService.getYearlySummary(2026).monthlySummaries().get(9).remainingAmount());
+        assertEquals(1_000, calendarService.getMonthlyCalendar(YearMonth.of(2026, 9)).dailyTotals().get(0).totalAmount());
     }
 
     @Test
@@ -202,6 +298,10 @@ class ServiceIntegrationTest {
         var updated = settingsService.updateSettings(new UpdateSettingsCommand(true, 18, true));
         assertEquals(LocalDate.of(2026, 10, 14), updated.currentPeriodRange().endDate());
         assertEquals(LocalDate.of(2026, 10, 15), updated.nextPeriodRange().startDate());
+        var disabled = settingsService.updateSettings(new UpdateSettingsCommand(true, 18, false));
+        assertFalse(disabled.adjustForWeekendsAndHolidays());
+        assertEquals(LocalDate.of(2026, 10, 17), disabled.currentPeriodRange().endDate());
+        assertEquals(LocalDate.of(2026, 10, 18), disabled.nextPeriodRange().startDate());
     }
 
     @Test

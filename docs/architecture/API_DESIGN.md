@@ -1,4 +1,4 @@
-# ズボラ会計簿 API設計書
+# ズボラ家計簿 API設計書
 
 ## 目的と接続方式
 
@@ -15,7 +15,8 @@ React画面は`/api/v1`以下のSpring Boot REST APIを呼び、Spring Data JPA�
 | ホーム表示 | GET | `/api/v1/home?asOf=YYYY-MM-DD` | 基準日 | `HomeResponse` | 200 |
 | 支出登録 | POST | `/api/v1/expenses` | `CreateExpenseRequest` | `ExpenseResponse` | 201 |
 | 支出編集 | PUT | `/api/v1/expenses/{expenseId}` | UUID、`UpdateExpenseRequest` | `ExpenseResponse` | 200 |
-| 月別カレンダー | GET | `/api/v1/calendar?month=YYYY-MM` | 表示年月 | `CalendarMonthResponse` | 200 |
+| 支出削除 | DELETE | `/api/v1/expenses/{expenseId}` | UUID | なし | 204（存在しないIDは404） |
+| 月度カレンダー | GET | `/api/v1/calendar?month=YYYY-MM` | 月度ラベル | `CalendarMonthResponse`（月度の開始日〜終了日の日別合計） | 200 |
 | 日別明細 | GET | `/api/v1/calendar/days/{date}` | 日付 | `DailyExpensesResponse` | 200 |
 | 年別グラフ | GET | `/api/v1/graphs/yearly?year=YYYY` | 表示年 | `YearlyBudgetSummaryResponse` | 200 |
 | 設定取得 | GET | `/api/v1/settings` | なし | `SettingsResponse` | 200 |
@@ -43,6 +44,7 @@ React画面は`/api/v1`以下のSpring Boot REST APIを呼び、Spring Data JPA�
 ```
 
 `memo`は省略・`null`を許可し、空文字はServiceで`null`へ正規化する。`SettingsResponse`は進行中と次月度の実際の`startDate`・`endDate`を返し、React側では期間を再計算しない。グラフは1〜12月を返し、未作成月は0、選択した月の棒と金額は`remainingAmount`を使う。残額が負でも正常なデータとして扱う。
+開始日または土日祝調整の更新は、保存済みの全月度へ適用する。既存支出の`spentOn`・金額・メモは維持し、所属月度を新しい範囲へ付け替える。各月度の予算額は月度ラベルに残し、ホーム・カレンダー・グラフの金額を再集計する。新しい開始日が保存日より後なら、保存日のホームは直前の月度を返す。
 
 ## エラー契約
 
@@ -56,10 +58,10 @@ React画面は`/api/v1`以下のSpring Boot REST APIを呼び、Spring Data JPA�
 | 422 | `BUSINESS_RULE` | 祝日データ不足など業務条件未成立 |
 | 500 | `INTERNAL_ERROR` | 想定外のサーバー処理失敗 |
 
-フロントは`ApiError`としてHTTPステータス、code、message、fieldErrorsを受け取る。保存成功後だけ入力シートを閉じ、ホーム・カレンダー・グラフなど関係する取得結果を再取得する。通信失敗時は入力値を保持し、再試行できる状態にする。
+フロントは`ApiError`としてHTTPステータス、code、message、fieldErrorsを受け取る。保存成功後だけ入力シートを閉じ、ホーム・カレンダー・グラフなど関係する取得結果を再取得する。削除成功後も同じ取得結果を再取得する。通信失敗時は入力値を保持し、再試行できる状態にする。
 
 ## 画面との対応と現段階の制約
 
-ホーム入力は当日を`spentOn`として支出登録し、保存後にホームを再取得する。カレンダーの追加・編集は選択日と支出IDを使い、保存後に月別集計・日別明細を再取得する。設定更新はレスポンスに含まれる月度範囲を表示し、予算更新後はホームを再取得する。グラフの年候補は`availableYears`だけを表示する。
+ホーム入力は当日を`spentOn`として支出登録し、保存後にホームを再取得する。カレンダーの追加・編集は選択日と支出IDを使い、保存後に月別集計・日別明細を再取得する。カレンダーは2026年12月から2030年12月まで切り替えられ、月度は表示・記録時に必要な範囲を作成する。設定更新はレスポンスに含まれる当月度・次月度の範囲を表示し、予算更新後はホームを再取得する。グラフの年選択は2026年から2030年までを表示する。
 
-現在のバックエンドは初回月度を作るが、月度をまたいだ際の自動生成は未実装である。次月度が未作成のまま切り替わると対象日の取得は404になるため、継続運用前に月度繰り越し処理が必要。祝日データの取込も別工程とする。ViteプロキシはWeb開発環境向けであり、Capacitor実機から別オリジンのAPIを呼ぶ構成は接続先・CORS・HTTPS等を別途決める。
+月度が未作成の場合、ホーム・設定・予算・カレンダー表示および支出記録時に現行規則から必要な月度を予算0円で作成する。開始日・土日祝調整の変更では保存済み全月度を再計算し、支出を記録日に対応する月度へ付け替える。祝日データが未公表の2028年以降は暫定的に土日のみ調整し、記録を可能にする。祝日データの取込は別工程とする。ViteプロキシはWeb開発環境向けであり、Capacitor実機から別オリジンのAPIを呼ぶ構成は接続先・CORS・HTTPS等を別途決める。

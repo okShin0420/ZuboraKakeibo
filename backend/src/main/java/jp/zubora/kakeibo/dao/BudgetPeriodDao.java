@@ -18,6 +18,8 @@ public interface BudgetPeriodDao extends JpaRepository<BudgetPeriodEntity, UUID>
 
     Optional<BudgetPeriodEntity> findByLabelMonth(LocalDate labelMonth);
 
+    boolean existsByStartDateAfter(LocalDate date);
+
     @Query("select p from BudgetPeriodEntity p where p.startDate <= :to and p.endDate >= :from")
     List<BudgetPeriodEntity> findOverlappingDateRange(@Param("from") LocalDate from, @Param("to") LocalDate to);
 

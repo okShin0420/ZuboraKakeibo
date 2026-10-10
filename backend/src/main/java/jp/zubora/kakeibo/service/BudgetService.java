@@ -15,13 +15,15 @@ import jp.zubora.kakeibo.entity.BudgetPeriodSummaryEntity;
 public class BudgetService {
     private final BudgetPeriodDao periodDao;
     private final Clock clock;
+    private final PeriodProvisioningService provisioning;
 
-    public BudgetService(BudgetPeriodDao periodDao, Clock clock) {
+    public BudgetService(BudgetPeriodDao periodDao, Clock clock, PeriodProvisioningService provisioning) {
         this.periodDao = periodDao;
         this.clock = clock;
+        this.provisioning = provisioning;
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public BudgetResult getCurrentBudget(LocalDate asOf) {
         BudgetPeriodEntity period = periodFor(ServiceValues.date(asOf));
         BudgetPeriodSummaryEntity summary = summaryFor(asOf);
@@ -43,6 +45,7 @@ public class BudgetService {
     }
 
     private BudgetPeriodEntity periodFor(LocalDate asOf) {
+        provisioning.ensureDate(asOf);
         return periodDao.findContainingDate(asOf)
                 .orElseThrow(() -> new ResourceNotFoundException("対象日の月度が見つかりません"));
     }

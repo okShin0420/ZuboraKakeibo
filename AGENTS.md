@@ -1,8 +1,8 @@
-# ズボラ会計簿：エージェント向け指針
+# ズボラ家計簿：エージェント向け指針
 
 ## プロダクトの目的
 
-ズボラ会計簿は、家計簿を正確に付けることではなく、ユーザーが**今月あといくら使えるかを、負担なく把握できること**を目的とするアプリです。
+ズボラ家計簿は、家計簿を正確に付けることではなく、ユーザーが**今月あといくら使えるかを、負担なく把握できること**を目的とするアプリです。
 
 「家計簿をちゃんとつける」を求めず、続けやすさを最優先にしてください。
 
@@ -20,10 +20,11 @@
 ## リポジトリ構成
 
 - `frontend/`：React・TypeScript・ViteによるWebクライアント
+- `mobile/`：React Native・Expo・TypeScriptによる端末アプリ（端末内SQLite、月度計算、Repository、同梱祝日、主要画面の接続を実装済み。実機検証は未完了）
 - `backend/`：SQLiteマイグレーション、期間計算、Spring Boot API、DBアクセス、バックエンドテスト
 - `docs/`：画面遷移、デザイン仕様、設計資料
 - フロントエンド固有の依存関係やコマンドは `frontend/` 内で管理する。
-- 今回の開発ではSpring BootからSQLiteを使用し、PostgreSQLは使用しない。DB設計は `docs/database/DATABASE_DESIGN.md` を基準にする。
+- 現行Web版はSpring BootからSQLiteを使用する。移行先のモバイル版は端末内SQLiteを使用し、完成後は通常利用時にSpring Bootへ通信しない。DB設計は `docs/database/DATABASE_DESIGN.md` を基準にする。
 - UUIDと日時はアプリケーション側で生成し、SQLiteのDB固有生成関数には依存しない。
 
 ## MVP の範囲

@@ -32,6 +32,7 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}): Promi
     throw new ApiError(response.status, body?.code ?? 'HTTP_ERROR',
       body?.message ?? '通信中に問題が起きました。もう一度お試しください。', body?.fieldErrors ?? {})
   }
+  if (response.status === 204) return undefined as T
   return response.json() as Promise<T>
 }
 

@@ -104,14 +104,13 @@ export function SettingsScreen({
           <h1 id="settings-title">設定</h1>
           <button className="sheet-close-button" type="button" aria-label="設定を閉じる" onClick={onClose} autoFocus><X aria-hidden="true" /></button>
         </header>
-        <p className="settings-intro">今月のやりくりを、無理のない形に整えます。</p>
         {error && <p className="api-inline-error" role="alert">{error}</p>}
 
         <section className="settings-group" aria-labelledby="budget-settings-title">
           <h2 id="budget-settings-title">やりくり</h2>
           <button className="settings-link-row" type="button" onClick={onOpenMoney}>
             <span className="settings-row-icon"><BudgetCoinsIcon aria-hidden="true" /></span>
-            <span className="settings-row-copy"><strong>今月使える金額</strong><small>今月の予算を変更</small></span>
+            <span className="settings-row-copy"><strong>今月使える金額</strong></span>
             <span className="settings-row-value">¥{yen(budget)}</span>
             <ChevronRight className="settings-chevron" size={18} aria-hidden="true" />
           </button>
@@ -131,7 +130,7 @@ export function SettingsScreen({
           <div className="settings-period-card">
             <div className="settings-control-row">
               <span className="settings-row-icon"><StartDayIcon /></span>
-              <span className="settings-row-copy"><strong>月度の開始日</strong><small>次月度の開始日前日までを1月度として扱います</small></span>
+              <span className="settings-row-copy"><strong>月度の開始日</strong></span>
               <button className="start-day-selector" type="button" aria-label={`月度の開始日: ${startDay}日。変更する`} onClick={openStartDayPicker} disabled={busy}>
                 <span>{startDay}日</span><ChevronRight aria-hidden="true" />
               </button>

@@ -12,23 +12,26 @@ import jp.zubora.kakeibo.dto.result.HomeResult;
 import jp.zubora.kakeibo.entity.BudgetPeriodSummaryEntity;
 
 @Service
-@Transactional(readOnly = true)
+@Transactional
 public class HomeService {
     private final BudgetPeriodDao periodDao;
     private final ExpenseDao expenseDao;
+    private final PeriodProvisioningService provisioning;
 
-    public HomeService(BudgetPeriodDao periodDao, ExpenseDao expenseDao) {
+    public HomeService(BudgetPeriodDao periodDao, ExpenseDao expenseDao, PeriodProvisioningService provisioning) {
         this.periodDao = periodDao;
         this.expenseDao = expenseDao;
+        this.provisioning = provisioning;
     }
 
     public HomeResult getHome(LocalDate asOf) {
         ServiceValues.date(asOf);
+        provisioning.ensureDate(asOf);
         BudgetPeriodSummaryEntity summary = periodDao.findSummaryContaining(asOf)
                 .orElseThrow(() -> new ResourceNotFoundException("対象日の月度が見つかりません"));
         int remainingDays = Math.toIntExact(ChronoUnit.DAYS.between(asOf, summary.getEndDate()) + 1);
         return new HomeResult(summary.getLabelMonth(), summary.getBudgetAmount(), summary.getSpentAmount(),
                 summary.getRemainingAmount(), expenseDao.sumAmountBySpentOn(asOf), remainingDays,
-                "今日も、自分のペースで。");
+                HomeMessageSelector.select(summary.getBudgetAmount(), summary.getRemainingAmount(), remainingDays));
     }
 }

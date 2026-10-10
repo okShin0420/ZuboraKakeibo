@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -102,6 +103,9 @@ class ControllerWebTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"spentOn\":\"2026-09-21\",\"amount\":1500}"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.amount").value(1_500));
+        mvc.perform(delete("/api/v1/expenses/{expenseId}", EXPENSE_ID))
+                .andExpect(status().isNoContent());
+        verify(expenseService).deleteExpense(EXPENSE_ID);
 
         when(calendarService.getMonthlyCalendar(YearMonth.of(2026, 9)))
                 .thenReturn(new CalendarMonthResult(YearMonth.of(2026, 9),

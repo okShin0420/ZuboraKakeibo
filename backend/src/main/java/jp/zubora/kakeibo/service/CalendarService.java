@@ -21,17 +21,19 @@ import jp.zubora.kakeibo.entity.BudgetPeriodEntity;
 public class CalendarService {
     private final BudgetPeriodDao periodDao;
     private final ExpenseDao expenseDao;
+    private final PeriodProvisioningService provisioning;
 
-    public CalendarService(BudgetPeriodDao periodDao, ExpenseDao expenseDao) {
+    public CalendarService(BudgetPeriodDao periodDao, ExpenseDao expenseDao, PeriodProvisioningService provisioning) {
         this.periodDao = periodDao;
         this.expenseDao = expenseDao;
+        this.provisioning = provisioning;
     }
 
+    @Transactional(readOnly = false)
     public CalendarMonthResult getMonthlyCalendar(YearMonth month) {
         Objects.requireNonNull(month, "month");
-        BudgetPeriodEntity period = periodDao.findByLabelMonth(month.atDay(1))
-                .orElseThrow(() -> new ResourceNotFoundException("対象の月度が見つかりません"));
-        List<DailyExpenseTotal> totals = expenseDao.sumAmountByDateRange(month.atDay(1), month.atEndOfMonth())
+        BudgetPeriodEntity period = provisioning.ensureMonth(month);
+        List<DailyExpenseTotal> totals = expenseDao.sumAmountByDateRange(period.getStartDate(), period.getEndDate())
                 .stream().map(row -> new DailyExpenseTotal(row.getSpentOn(), row.getTotalAmount())).toList();
         return new CalendarMonthResult(month, period.getStartDate(), period.getEndDate(), totals);
     }

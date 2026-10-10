@@ -7,6 +7,8 @@ import { BottomNavigation, type NavigationTab } from './BottomNavigation'
 
 const formatYen = (value: number) => value.toLocaleString('ja-JP')
 const emptyMonth = (month: number): MonthlyBudgetSummary => ({ month, budgetAmount: 0, spentAmount: 0, remainingAmount: 0, expenseCount: 0 })
+const graphAmount = (month: MonthlyBudgetSummary): number => month.budgetAmount === 0 ? 0 : month.remainingAmount
+const availableYears = Array.from({ length: 5 }, (_, index) => 2026 + index)
 
 export function GraphScreen({ onNavigate, initialYear, initialMonth, revision }: {
   onNavigate: (tab: NavigationTab) => void
@@ -22,12 +24,11 @@ export function GraphScreen({ onNavigate, initialYear, initialMonth, revision }:
   const yearButtonRef = useRef<HTMLButtonElement>(null)
   const yearSheetRef = useRef<HTMLElement>(null)
   const monthButtonRefs = useRef<Array<HTMLButtonElement | null>>([])
-  const availableYears = summary?.availableYears ?? []
   const monthlyData = Array.from({ length: 12 }, (_, index) => summary?.monthlySummaries.find(item => item.month === index + 1) ?? emptyMonth(index + 1))
   const activeData = monthlyData[activeMonth - 1] ?? monthlyData[0]
   const activeIndex = activeData.month - 1
   const selectionPosition = `${((activeIndex + 0.5) / monthlyData.length) * 100}%`
-  const maxUnits = Math.max(3, Math.ceil(Math.max(...monthlyData.map(item => item.remainingAmount)) / 10000))
+  const maxUnits = Math.max(3, Math.ceil(Math.max(...monthlyData.map(graphAmount)) / 10000))
 
   useEffect(() => {
     let active = true
@@ -86,10 +87,12 @@ export function GraphScreen({ onNavigate, initialYear, initialMonth, revision }:
       <main className="graph-screen">
         <section className="graph-panel" aria-labelledby="graph-title">
           {summary && <header className="graph-summary">
-            <h1 id="graph-title">やりくり金額</h1>
-            <p aria-live="polite">{activeData.month}月</p>
-            <strong aria-live="polite">¥{formatYen(activeData.remainingAmount)}</strong>
-            <small>月ごとの金額を、ざっくり振り返る</small>
+            <div className="graph-summary-copy">
+              <h1 id="graph-title">やりくり金額</h1>
+              <p aria-live="polite">{activeData.month}月</p>
+              <strong aria-live="polite">¥{formatYen(graphAmount(activeData))}</strong>
+            </div>
+            <img className="graph-summary-dog" src="/assets/jikkun.png" alt="" width="1254" height="1254" draggable="false" aria-hidden="true" />
           </header>}
           {!summary && <h1 id="graph-title" className="sr-only">やりくり金額</h1>}
           <button
@@ -112,7 +115,7 @@ export function GraphScreen({ onNavigate, initialYear, initialMonth, revision }:
               <div className="chart-selection-track">
                 <div className="chart-selection-summary" style={{ '--selection-position': selectionPosition } as CSSProperties} aria-live="polite">
                   <span>{activeData.month}月</span>
-                  <strong>¥{formatYen(activeData.remainingAmount)}</strong>
+                  <strong>¥{formatYen(graphAmount(activeData))}</strong>
                 </div>
                 <span className="chart-selection-connector" style={{ '--selection-position': selectionPosition } as CSSProperties} aria-hidden="true" />
               </div>
@@ -130,12 +133,12 @@ export function GraphScreen({ onNavigate, initialYear, initialMonth, revision }:
                       className={`bar-column${selected ? ' bar-column-active' : ''}`}
                       key={item.month}
                       type="button"
-                      aria-label={`${activeYear}年${item.month}月、${formatYen(item.remainingAmount)}円`}
+                      aria-label={`${activeYear}年${item.month}月、${formatYen(graphAmount(item))}円`}
                       aria-pressed={selected}
                       onClick={() => setActiveMonth(item.month)}
                       onKeyDown={event => selectMonthWithKeyboard(event, index)}
                     >
-                      <span className="bar" style={{ height: `${Math.max(0, item.remainingAmount) / (maxUnits * 10000) * 100}%`, animationDelay: `${index * 12}ms` }} aria-hidden="true" />
+                      <span className="bar" style={{ height: `${Math.max(0, graphAmount(item)) / (maxUnits * 10000) * 100}%`, animationDelay: `${index * 12}ms` }} aria-hidden="true" />
                       {selected && <span className="bar-selection-line" aria-hidden="true" />}
                       <span className="bar-label" aria-hidden="true">{item.month}</span>
                     </button>
@@ -151,7 +154,7 @@ export function GraphScreen({ onNavigate, initialYear, initialMonth, revision }:
         <div className="year-picker-overlay" onMouseDown={event => { if (event.target === event.currentTarget) setYearPickerOpen(false) }}>
           <section id="graph-year-picker" ref={yearSheetRef} className="year-picker" role="dialog" aria-modal="true" aria-labelledby="graph-year-picker-title">
             <header className="year-picker-header">
-              <div><h2 id="graph-year-picker-title">表示する年</h2><p>記録がある年を表示します</p></div>
+              <div><h2 id="graph-year-picker-title">表示する年</h2></div>
               <button type="button" aria-label="年選択を閉じる" onClick={() => setYearPickerOpen(false)}><X aria-hidden="true" /></button>
             </header>
             <div className="year-picker-options" role="radiogroup" aria-label="表示年">

@@ -15,12 +15,11 @@ export function HomeScreen({ model, onNavigate, onOpenSettings, onSaveExpense }:
   onSaveExpense: (draft: ExpenseDraft) => Promise<void>
 }) {
   const [modalOpen, setModalOpen] = useState(false)
-
   return (
     <>
       <main className="home-screen">
         <header className="home-header">
-          <h1 className="current-month">{model.month}<span>月</span></h1>
+          <h1 className="current-month"><strong>{model.month}</strong><span>月</span></h1>
           <button className="icon-button settings-button" type="button" aria-label="設定" onClick={onOpenSettings}>
             <SettingsGearIcon width={23} height={23} aria-hidden="true" />
           </button>
@@ -34,12 +33,12 @@ export function HomeScreen({ model, onNavigate, onOpenSettings, onSaveExpense }:
             </div>
             <h2>今月あとつかえるお金</h2>
             <p className="balance-amount" aria-label={`残り予算 ${yen(model.remainingBudget)}円`}><span className="currency">¥</span>{yen(model.remainingBudget)}</p>
-            <p className="days-left">残り <strong>{model.remainingDays}</strong> 日</p>
+            <p className="remaining-days"><span>残</span><strong>{model.remainingDays}</strong><span>日</span></p>
           </div>
         </section>
 
         <section className="today-card" aria-label="今日の支出">
-          <span className="today-icon"><TodayExpenseIcon width={20} height={20} aria-hidden="true" /></span>
+          <span className="today-icon" aria-hidden="true"><TodayExpenseIcon width={20} height={20} /></span>
           <h2>今日つかった</h2>
           <p>¥{yen(model.todayExpense)}</p>
         </section>

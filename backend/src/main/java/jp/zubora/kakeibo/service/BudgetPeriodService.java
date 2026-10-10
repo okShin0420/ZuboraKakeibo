@@ -100,10 +100,55 @@ public class BudgetPeriodService {
         next.setStartDate(nextRange.startDate());
         next.setNominalEndDate(nextRange.nominalEndDate());
         next.setEndDate(nextRange.endDate());
-        next.setBudgetAmount(current.getBudgetAmount());
+        next.setBudgetAmount(0);
         next.setCreatedAt(clock.instant());
         next.setUpdatedAt(next.getCreatedAt());
         budgetPeriodDao.save(next);
+        return nextRange;
+    }
+
+    @Transactional
+    public PeriodRangeResult replaceNextPeriodRule(LocalDate asOf, BudgetCycleRuleEntity nextRule,
+                                                    BudgetPeriodEntity existingNext) {
+        ServiceValues.date(asOf);
+        validateRule(nextRule);
+        Objects.requireNonNull(existingNext, "existingNext");
+        BudgetPeriodEntity current = budgetPeriodDao.findContainingDate(asOf)
+                .orElseThrow(() -> new ResourceNotFoundException("進行中の月度が見つかりません"));
+        YearMonth nextMonth = YearMonth.from(current.getLabelMonth()).plusMonths(1);
+        if (!existingNext.getLabelMonth().equals(nextMonth.atDay(1))
+                || !existingNext.getStartDate().isAfter(asOf)
+                || expenseDao.existsByBudgetPeriodId(existingNext.getId())
+                || budgetPeriodDao.existsByStartDateAfter(existingNext.getStartDate())) {
+            throw new PeriodConflictException("次月度にはすでに支出または後続の月度があり、設定を変更できません");
+        }
+        PeriodRangeResult nextRange = calculatePeriod(nextMonth, nextRule);
+        if (!nextRange.startDate().isAfter(asOf) || !nextRange.startDate().isAfter(current.getStartDate())) {
+            throw new BusinessRuleException("次月度の開始日は進行中の月度内の日付より後にしてください");
+        }
+        if (budgetPeriodDao.findOverlappingDateRange(current.getStartDate(), nextRange.startDate().minusDays(1))
+                .stream().anyMatch(period -> !period.getId().equals(current.getId())
+                        && !period.getId().equals(existingNext.getId()))
+                || budgetPeriodDao.findOverlappingDateRange(nextRange.startDate(), nextRange.endDate())
+                        .stream().anyMatch(period -> !period.getId().equals(current.getId())
+                                && !period.getId().equals(existingNext.getId()))) {
+            throw new PeriodConflictException("予算期間が既存の期間と重複しています");
+        }
+        LocalDate newCurrentEnd = nextRange.startDate().minusDays(1);
+        if (expenseDao.existsByBudgetPeriodIdAndSpentOnAfter(current.getId(), newCurrentEnd)) {
+            throw new PeriodConflictException("境界変更後に期間外となる支出があります");
+        }
+        LocalDate scheduledNextStart = nextMonth.atDay(Math.min(nextRule.getStartDay(), nextMonth.lengthOfMonth()));
+        current.setNominalEndDate(scheduledNextStart.minusDays(1));
+        current.setEndDate(newCurrentEnd);
+        current.setUpdatedAt(clock.instant());
+        budgetPeriodDao.save(current);
+        existingNext.setCycleRuleId(nextRule.getId());
+        existingNext.setStartDate(nextRange.startDate());
+        existingNext.setNominalEndDate(nextRange.nominalEndDate());
+        existingNext.setEndDate(nextRange.endDate());
+        existingNext.setUpdatedAt(clock.instant());
+        budgetPeriodDao.saveAndFlush(existingNext);
         return nextRange;
     }
 
@@ -122,7 +167,7 @@ public class BudgetPeriodService {
         if (!adjust) return scheduledStart;
         LocalDate date = scheduledStart;
         while (true) {
-            if (!holidayCoverageDao.existsById((short) date.getYear())) {
+            if (date.getYear() < 2028 && !holidayCoverageDao.existsById((short) date.getYear())) {
                 throw new BusinessRuleException("月度開始日の祝日データが不足しています: " + date.getYear());
             }
             DayOfWeek day = date.getDayOfWeek();

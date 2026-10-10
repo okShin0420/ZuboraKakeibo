@@ -1,4 +1,4 @@
-# ズボラ会計簿 プログラム機能構成図
+# ズボラ家計簿 プログラム機能構成図
 
 ## 1. 目的
 
@@ -99,8 +99,8 @@ API欄は今回のSpring Boot開発環境で使用するエンドポイントで
 | ホーム | 入力する | 支出入力 | 初期金額0、当日、空メモ、登録モード | 金額、メモ、保存可否 | 画面表示時はAPIなし |
 | 支出入力 | 保存する | ホーム | 利用日、金額、任意メモ | 登録した支出、再取得したホーム情報 | `POST /api/v1/expenses`、`GET /api/v1/home` |
 | ホーム／カレンダー／グラフ | ホームタブ | ホーム | 基準日 | ホーム情報 | `GET /api/v1/home` |
-| ホーム／カレンダー／グラフ | カレンダータブ | カレンダー | 表示年月 | 暦月の全日付と日別支出合計、対象月度の範囲 | `GET /api/v1/calendar?month=YYYY-MM` |
-| カレンダー | 前月／翌月 | カレンダー | 表示年月 | 切替後の暦月全体の日別支出合計、対象月度の範囲 | `GET /api/v1/calendar?month=YYYY-MM` |
+| ホーム／カレンダー／グラフ | カレンダータブ | カレンダー | 対象月度 | 月度の開始日〜終了日の全日付と日別支出合計 | `GET /api/v1/calendar?month=YYYY-MM` |
+| カレンダー | 前月度／翌月度 | カレンダー | 対象月度 | 切替後の月度範囲とその期間内の日別支出合計 | `GET /api/v1/calendar?month=YYYY-MM` |
 | カレンダー | 対象期間内の日付 | カレンダー内の日別明細 | 選択日 | 当日の支出合計、支出明細 | `GET /api/v1/calendar/days/{date}` |
 | カレンダー | ＋ | 支出入力 | 選択日、初期金額0、空メモ、登録モード | 金額、メモ、保存可否 | 画面表示時はAPIなし |
 | カレンダー | 明細行／鉛筆 | 支出入力 | 支出ID、既存金額、既存メモ、利用日、編集モード | 編集対象の金額とメモ | 既に取得した明細を使用 |
@@ -146,7 +146,7 @@ API欄は今回のSpring Boot開発環境で使用するエンドポイントで
 | FN-05 | `CalendarController.getDailyExpenses(LocalDate date): DailyExpensesResponse` | `CalendarService.getDailyExpenses(LocalDate date): DailyExpensesResult` | `ExpenseDao.findAllBySpentOnOrderByCreatedAtAsc(LocalDate date): List<ExpenseEntity>` | `expenses` |
 | FN-06 | `GraphController.getYearlySummary(int year): YearlyBudgetSummaryResponse` | `GraphService.getYearlySummary(int year): YearlyBudgetSummaryResult` | `BudgetPeriodDao.findSummariesByLabelMonthBetween(LocalDate from, LocalDate to): List<BudgetPeriodSummaryEntity>`<br>`BudgetPeriodDao.findDistinctLabelYears(): List<Integer>` | `budget_periods`、`expenses`、`budget_period_summary` |
 | FN-07 | `SettingsController.getSettings(): SettingsResponse` | `SettingsService.getSettings(LocalDate asOf): SettingsResult` | `AppSettingsDao.findById(Short id): Optional<AppSettingsEntity>`<br>`BudgetCycleRuleDao.findEffectiveAt(LocalDate date): Optional<BudgetCycleRuleEntity>`<br>`BudgetCycleRuleDao.findById(UUID id): Optional<BudgetCycleRuleEntity>`<br>`BudgetPeriodDao.findContainingDate(LocalDate date): Optional<BudgetPeriodEntity>`<br>`BudgetPeriodDao.findByLabelMonth(LocalDate labelMonth): Optional<BudgetPeriodEntity>`<br>`HolidayCoverageDao.existsById(Short year): boolean`<br>`HolidayDao.existsById(String holidayDate): boolean`（次月度が未作成で調整ONのプレビュー時） | `app_settings`、`budget_cycle_rules`、`budget_periods`、`holiday_calendar_coverage`、`holidays` |
-| FN-08 | `SettingsController.updateSettings(UpdateSettingsRequest request): SettingsResponse` | `SettingsService.updateSettings(UpdateSettingsCommand command): SettingsResult`<br>`BudgetPeriodService.applyNextPeriodRule(LocalDate asOf, BudgetCycleRuleEntity nextRule): PeriodRangeResult` | `AppSettingsDao.save(AppSettingsEntity entity): AppSettingsEntity`<br>`BudgetCycleRuleDao.findEffectiveAt(LocalDate date): Optional<BudgetCycleRuleEntity>`<br>`BudgetCycleRuleDao.findById(UUID id): Optional<BudgetCycleRuleEntity>`<br>`BudgetCycleRuleDao.findOverlapping(LocalDate from, LocalDate to): List<BudgetCycleRuleEntity>`<br>`BudgetCycleRuleDao.saveAndFlush(BudgetCycleRuleEntity entity): BudgetCycleRuleEntity`<br>`BudgetCycleRuleDao.save(BudgetCycleRuleEntity entity): BudgetCycleRuleEntity`<br>`BudgetPeriodDao.findContainingDate(LocalDate date): Optional<BudgetPeriodEntity>`<br>`BudgetPeriodDao.findByLabelMonth(LocalDate labelMonth): Optional<BudgetPeriodEntity>`<br>`BudgetPeriodDao.findOverlappingDateRange(LocalDate from, LocalDate to): List<BudgetPeriodEntity>`<br>`BudgetPeriodDao.save(BudgetPeriodEntity entity): BudgetPeriodEntity`<br>`ExpenseDao.existsByBudgetPeriodIdAndSpentOnAfter(UUID budgetPeriodId, LocalDate date): boolean`<br>`HolidayCoverageDao.existsById(Short year): boolean`<br>`HolidayDao.existsById(String holidayDate): boolean` | `app_settings`、`budget_cycle_rules`、`budget_periods`、`expenses`、`holiday_calendar_coverage`、`holidays` |
+| FN-08 | `SettingsController.updateSettings(UpdateSettingsRequest request): SettingsResponse` | `SettingsService.updateSettings(UpdateSettingsCommand command): SettingsResult`<br>`BudgetPeriodService.calculatePeriod(YearMonth, BudgetCycleRuleEntity): PeriodRangeResult` | `AppSettingsDao`で通知を更新。`BudgetCycleRuleDao`・`BudgetPeriodDao`で対象と前後の月度を取得し、同一トランザクション内のSQLでルール・期間・支出の所属月度を更新。`HolidayCoverageDao`・`HolidayDao`で調整に必要な祝日を確認 | `app_settings`、`budget_cycle_rules`、`budget_periods`、`expenses`、`holiday_calendar_coverage`、`holidays` |
 | FN-09 | `BudgetController.updateCurrentBudget(UpdateBudgetRequest request): BudgetResponse` | `BudgetService.updateCurrentBudget(LocalDate asOf, long amount): BudgetResult` | `BudgetPeriodDao.findContainingDate(LocalDate date): Optional<BudgetPeriodEntity>`<br>`BudgetPeriodDao.save(BudgetPeriodEntity entity): BudgetPeriodEntity` | `budget_periods` |
 | FN-10 | `BudgetController.getCurrentBudget(LocalDate asOf): BudgetResponse` | `BudgetService.getCurrentBudget(LocalDate asOf): BudgetResult` | `BudgetPeriodDao.findContainingDate(LocalDate date): Optional<BudgetPeriodEntity>`<br>`BudgetPeriodDao.findSummaryContaining(LocalDate date): Optional<BudgetPeriodSummaryEntity>` | `budget_periods`、`expenses`、`budget_period_summary` |
 
@@ -159,7 +159,7 @@ API欄は今回のSpring Boot開発環境で使用するエンドポイントで
 | `ExpenseController` | 支出登録・編集リクエストの検証とDTO変換 | `createExpense(CreateExpenseRequest request): ExpenseResponse`<br>`updateExpense(UUID expenseId, UpdateExpenseRequest request): ExpenseResponse` |
 | `CalendarController` | 月別カレンダーと日別明細の取得 | `getMonthlyCalendar(YearMonth month): CalendarMonthResponse`<br>`getDailyExpenses(LocalDate date): DailyExpensesResponse` |
 | `GraphController` | 年別の月次集計取得 | `getYearlySummary(int year): YearlyBudgetSummaryResponse` |
-| `SettingsController` | 設定の取得と次期間向け設定更新 | `getSettings(): SettingsResponse`<br>`updateSettings(UpdateSettingsRequest request): SettingsResponse` |
+| `SettingsController` | 設定の取得と現在月度からの設定更新 | `getSettings(): SettingsResponse`<br>`updateSettings(UpdateSettingsRequest request): SettingsResponse` |
 | `BudgetController` | 進行中期間の予算額取得・更新 | `getCurrentBudget(LocalDate asOf): BudgetResponse`<br>`updateCurrentBudget(UpdateBudgetRequest request): BudgetResponse` |
 
 ControllerはHTTP、Bean Validation、DTO変換だけを担当し、DBアクセスや期間計算を行いません。基準日をリクエストに持たない設定取得では、Controllerが `Clock` から `Asia/Tokyo` の当日を求めてServiceへ渡します。
@@ -169,12 +169,13 @@ ControllerはHTTP、Bean Validation、DTO変換だけを担当し、DBアクセ�
 | クラス | メソッド（引数）／出力 | 主な処理 | トランザクション |
 | --- | --- | --- | --- |
 | `SetupService` | `isInitialized(): boolean`<br>`setup(long budgetAmount): SettingsResult` | 空DBに設定・開始日1日のルール・当月の予算期間を作成 | 登録時必須 |
-| `HomeService` | `getHome(LocalDate asOf): HomeResult` | 対象期間、残額、当日支出、残り日数を集約 | 読み取り専用 |
+| `HomeService` | `getHome(LocalDate asOf): HomeResult` | 未作成月度を必要時に作成し、対象期間、残額、当日支出、残り日数を集約 | 月度作成を含む |
 | `ExpenseService` | `createExpense(CreateExpenseCommand command): ExpenseResult`<br>`updateExpense(UUID expenseId, UpdateExpenseCommand command): ExpenseResult` | 金額・メモ・期間内日付を検証し、支出を登録・更新 | 必須 |
-| `CalendarService` | `getMonthlyCalendar(YearMonth month): CalendarMonthResult`<br>`getDailyExpenses(LocalDate date): DailyExpensesResult` | 表示する暦月の1日〜末日の日別合計と、対象月度の範囲を別々に取得。選択日の明細を取得 | 読み取り専用 |
+| `CalendarService` | `getMonthlyCalendar(YearMonth month): CalendarMonthResult`<br>`getDailyExpenses(LocalDate date): DailyExpensesResult` | 未作成月度を必要時に作成し、対象月度の開始日〜終了日の日別合計と、選択日の明細を取得 | 月度作成を含む |
 | `GraphService` | `getYearlySummary(int year): YearlyBudgetSummaryResult` | 1月から12月までの予算・支出・残額を整列し、年選択シート用に記録のある年を返す | 読み取り専用 |
-| `SettingsService` | `getSettings(LocalDate asOf): SettingsResult`<br>`updateSettings(UpdateSettingsCommand command): SettingsResult` | 通知更新、現ルール終了、次期間ルール作成。期間生成を`BudgetPeriodService`へ委譲 | 更新時必須 |
-| `BudgetPeriodService` | `applyNextPeriodRule(LocalDate asOf, BudgetCycleRuleEntity nextRule): PeriodRangeResult` | 次月度を生成し、進行中月度の予定終了日を次月度の開始予定日前日へ、実際の終了日を次月度の調整済み開始日前日へ更新。期間重複、既存支出、祝日coverageを検証 | `SettingsService.updateSettings`と同一トランザクション |
+| `SettingsService` | `getSettings(LocalDate asOf): SettingsResult`<br>`updateSettings(UpdateSettingsCommand command): SettingsResult` | 通知更新。開始日・土日祝調整の変更時は保存済みの全月度を単一の現行ルールで組み直し、支出の所属月度を記録日で更新。期間計算は`BudgetPeriodService`へ委譲 | 更新時必須 |
+| `BudgetPeriodService` | `calculatePeriod(YearMonth labelMonth, BudgetCycleRuleEntity rule): PeriodRangeResult` | 月末丸めと土日祝前倒しから期間境界を計算し、祝日coverageを検証 | 読み取り専用の計算 |
+| `PeriodProvisioningService` | `ensureDate(LocalDate date): BudgetPeriodEntity`<br>`ensureMonth(YearMonth month): BudgetPeriodEntity` | 表示・記録に必要な未作成月度を現行規則と予算0円で作成 | 必須 |
 | `BudgetService` | `getCurrentBudget(LocalDate asOf): BudgetResult`<br>`updateCurrentBudget(LocalDate asOf, long amount): BudgetResult` | 進行中期間の予算額・残額を取得し、予算額を即時更新 | 更新時必須 |
 
 ### 6.5 DAOクラス
@@ -190,11 +191,11 @@ DAOはSpring Data JPAのRepositoryインターフェースとして定義しま�
 | `HolidayCoverageDao` | `existsById(Short calendarYear): boolean` | `holiday_calendar_coverage` |
 | `HolidayDao` | `existsById(String holidayDate): boolean`<br>`findAllByCalendarYearOrderByHolidayDateAsc(Short calendarYear): List<HolidayEntity>` | `holidays` |
 
-FN-04の `sumAmountByDateRange` には月度の開始日・終了日ではなく、`month.atDay(1)` と `month.atEndOfMonth()` を渡します。カレンダーのマスは暦月全体を表示し、`periodStart`／`periodEnd` は対象月度内かどうかの表示・操作判定に用います。表示月の前半が前月度に属する場合も、その日の支出合計を返します。
+FN-04の `sumAmountByDateRange` には対象月度の `periodStart` と `periodEnd` を渡します。カレンダーのマスもその範囲を表示し、翌暦月にまたがる日付を同じ月度内で確認・入力・編集できるようにします。
 
-FN-08で開始日または土日祝調整を変更した場合は、次月度のルールと期間を作成し、進行中月度の `nominal_end_date` を次月度の開始予定日前日へ、`end_date` を次月度の調整済み開始日前日へ合わせます。通知だけの変更では期間を作り直しません。既存の次月度や支出と衝突する場合は、データを暗黙に付け替えず競合として返します。画面の「月度の範囲」はAPIレスポンスに含まれる進行中月度・次月度の実際の境界を表示し、React内では再計算しません。
+FN-08で開始日または土日祝調整を変更した場合は、保存済みの過去・現在・将来すべての月度を同じ規則で再計算します。支出は記録日を維持して新しい月度へ付け替え、月度別予算は保持します。未作成月度は表示・記録時に予算0円で作成します。通知だけの変更では期間を作り直しません。画面の「月度の範囲」はAPIレスポンスの実際の境界を表示し、React内では再計算しません。
 
-次月度のルールが保存済みの場合、設定取得の開始日・土日祝調整にはその次月度ルールの値を返します。同じ値で通知だけを変更しても期間を再作成しません。別の値への変更は既存の次月度と競合するため拒否します。
+設定取得の開始日・土日祝調整には単一の現行ルールの値を返します。同じ値で通知だけを変更しても期間を再作成しません。開始日・土日祝調整を再変更した場合も保存済み全月度を再計算し、既存支出を記録日により付け替えます。
 
 ## 7. 入出力DTO
 
@@ -220,10 +221,10 @@ Serviceへ渡すCommandはHTTP Requestの検証後に生成します。
 | --- | --- |
 | `HomeResponse`／`HomeResult` | `labelMonth`、`budgetAmount`、`spentAmount`、`remainingAmount`、`todayExpense`、`remainingDays`、`message` |
 | `ExpenseResponse`／`ExpenseResult` | `id`、`budgetPeriodId`、`spentOn`、`amount`、`memo`、`createdAt`、`updatedAt` |
-| `CalendarMonthResponse`／`CalendarMonthResult` | `YearMonth month`、`periodStart`、`periodEnd`、`List<DailyExpenseTotal> dailyTotals`（`month`の暦月1日〜末日を対象に集計し、`periodStart`／`periodEnd`は対象月度の範囲を別途示す） |
+| `CalendarMonthResponse`／`CalendarMonthResult` | `YearMonth month`（月度ラベル）、`periodStart`、`periodEnd`、`List<DailyExpenseTotal> dailyTotals`（月度の開始日〜終了日を対象に集計） |
 | `DailyExpensesResponse`／`DailyExpensesResult` | `date`、`totalAmount`、`List<ExpenseResponse> expenses` |
 | `YearlyBudgetSummaryResponse`／`YearlyBudgetSummaryResult` | `year`、`availableYears`（月度データが存在する年のみ）、`List<MonthlyBudgetSummary> monthlySummaries` |
-| `SettingsResponse`／`SettingsResult` | `monthlyNotificationEnabled`、`timezone`、`startDay`、`adjustForWeekendsAndHolidays`、`currentBudgetAmount`、`currentPeriodRange`、`nextPeriodRange`。各`PeriodRangeResponse`は`labelMonth`、`startDate`、`endDate`を持つ |
+| `SettingsResponse`／`SettingsResult` | `monthlyNotificationEnabled`、`timezone`、`startDay`、`adjustForWeekendsAndHolidays`、`currentBudgetAmount`、`currentPeriodRange`（当月度）、`nextPeriodRange`（次月度）。各`PeriodRangeResponse`は`labelMonth`、`startDate`、`endDate`を持つ |
 | `BudgetResponse`／`BudgetResult` | `budgetPeriodId`、`labelMonth`、`budgetAmount`、`remainingAmount`、`updatedAt` |
 
 各Service Resultは対応するHTTP Responseと同じ値を保持し、ControllerがResponse DTOへ変換します。`PeriodRangeResult`は`labelMonth`、`startDate`、`nominalEndDate`、`endDate`を持ち、期間計算ServiceとSettingsのService Resultで使います。
@@ -312,14 +313,13 @@ sequenceDiagram
     participant E as ExpenseDao
     S->>A: save(appSettings)
     S->>R: findEffectiveAt(asOf)
-    S->>PS: 開始日・土日祝調整が変わる場合 applyNextPeriodRule(asOf, nextRule)
+    S->>BP: 保存済みの全月度を取得
+    S->>PS: 新ルールで各月度の境界を計算
     PS->>H: 開始日調整に必要な各年のcoverage・祝日取得
-    PS->>BP: 進行中月度・次月度・重複期間を取得
-    PS->>PS: 次月度開始日と隣接境界を計算・検証
-    PS->>E: 境界変更で期間外になる既存支出の有無を確認
-    PS->>BP: 進行中月度の予定／実際の終了日更新・次月度save
-    PS-->>S: PeriodRangeResult
-    S->>R: 現ルール終了・新ルールsave
+    PS-->>S: 各月度のPeriodRangeResult
+    S->>R: 現行ルールへ統一し旧ルールを整理
+    S->>BP: 全月度の開始日と終了日を更新
+    S->>E: 支出を記録日に対応する月度へ付け替え
     S-->>C: SettingsResult
     C-->>UI: SettingsResponse 200
 ```
@@ -339,7 +339,7 @@ sequenceDiagram
     S->>BP: findByLabelMonth(2026-09-01)
     BP-->>S: BudgetPeriodEntity
     S->>E: sumAmountByDateRange(month.atDay(1), month.atEndOfMonth())
-    E-->>S: 暦月全体のDailyExpenseTotalProjection
+    E-->>S: 月度範囲内のDailyExpenseTotalProjection
     S-->>C: CalendarMonthResult
     C-->>UI: CalendarMonthResponse 200
 ```
@@ -368,7 +368,7 @@ sequenceDiagram
 | --- | --- | --- | --- |
 | `app_settings` | 月初通知、タイムゾーン | FN-08 | FN-07 |
 | `budget_cycle_rules` | 月度の開始日、土日祝調整、適用履歴 | FN-08 | FN-04、FN-07、FN-08 |
-| `budget_periods` | 月度の開始日、予定終了日、実際の終了日、予算額 | FN-08（次月度作成と隣接する進行中月度の予定／実際の終了日更新）、FN-09 | FN-01〜FN-04、FN-06〜FN-09 |
+| `budget_periods` | 月度の開始日、予定終了日、実際の終了日、予算額 | FN-08（保存済み全月度の境界更新）、FN-09 | FN-01〜FN-04、FN-06〜FN-09 |
 | `expenses` | 利用日、金額、任意メモ | FN-02、FN-03 | FN-01、FN-04〜FN-06、FN-08（境界変更時の既存支出確認） |
 | `holiday_calendar_coverage` | 年単位の祝日データ完全性 | 祝日取込処理（本書の画面外） | FN-08、期間生成処理 |
 | `holidays` | 日本の祝日の日付、名称、出典 | 祝日取込処理（本書の画面外） | FN-08、期間生成処理 |
@@ -384,13 +384,13 @@ sequenceDiagram
 - 月度の開始日は1〜31とし、存在しない日付は月末へ丸めます。土日祝調整ONでは開始日を直前の平日へ調整し、終了日は次月度の調整済み開始日の前日として月度を連続させます。
 - 土日祝調整がONの場合、当月度と次月度の開始予定日を直前の平日へ戻す過程で参照する各年の `holiday_calendar_coverage` が必要です。年境界をまたいで前倒しする場合は前年のcoverageも確認し、不足時は期間を生成しません。
 - 新しい予算期間・ルールの有効期間が既存データと重複する場合は拒否します。
-- 次月度開始日の変更で進行中月度の終了日を前倒しする場合、終了日より後にその月度へ紐づく支出があれば、黙って期間外へ追い出さず変更を拒否します。
-- 予算超過による負の残額は正常値として許可します。
+- 開始日の変更で月度境界をまたぐ支出は、記録日を変えずに対応する月度へ付け替えます。予算額は各月度に維持し、残額などの算出値を再集計します。
+- 予算超過による負の残額は正常値として許可します。未設定月度の予算額は0で、前月度から金額を引き継ぎません。グラフでは未設定月度の表示額を0円とします。
 
 ### 10.2 トランザクション境界
 
 - `ExpenseService.createExpense` と `updateExpense` は、期間確認と支出保存を同一トランザクションで行います。
-- `SettingsService.updateSettings` は、設定更新と、開始日・土日祝調整が変わる場合の現ルール終了、新ルール作成、`BudgetPeriodService`による次月度作成・進行中月度の終了日更新を同一トランザクションで行います。
+- `SettingsService.updateSettings` は、設定更新、現行ルールへの統一、保存済み全月度の境界更新、支出の所属月度変更を同一トランザクションで行います。期間計算は `BudgetPeriodService` を使用します。
 - `BudgetService.updateCurrentBudget` は、進行中期間の取得と予算更新を同一トランザクションで行います。
 - 取得系Serviceは `readOnly = true` とします。
 
@@ -419,7 +419,7 @@ sequenceDiagram
 | UUID | Javaアプリケーション側で生成し、SQLiteの`TEXT`列へ保存する |
 | 日付・日時 | 日付は`YYYY-MM-DD`、日時はUTC ISO 8601文字列としてSQLiteへ保存する |
 | 金額 | SQLiteの64bit `INTEGER`。日本円の正の整数として扱う |
-| マイグレーション管理 | Spring Boot実行時はFlywayの `flyway_schema_history` を正とする。既存SQLiteの `PRAGMA user_version` は初回引き継ぎ判定にだけ使用する。開始日1〜31日の初期スキーマはFlyway V1へ統合する |
+| マイグレーション管理 | Spring Boot実行時はFlywayの `flyway_schema_history` を正とする。既存SQLiteの `PRAGMA user_version` は初回引き継ぎ判定にだけ使用する。開始日1〜31日の初期スキーマはFlyway V1、月度ごとの0円初期化はV2で適用する。モバイル版も同等のV2を適用する |
 
 PostgreSQL接続、クラウド同期、端末SQLiteとの同期は今回の対象外です。将来それらを追加する場合も、Controller・Serviceの公開DTOと業務ルールは維持し、DAO実装と接続設定を追加または切り替えます。
 

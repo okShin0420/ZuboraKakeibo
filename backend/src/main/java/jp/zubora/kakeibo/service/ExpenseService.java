@@ -22,11 +22,14 @@ public class ExpenseService {
     private final ExpenseDao expenseDao;
     private final BudgetPeriodDao periodDao;
     private final Clock clock;
+    private final PeriodProvisioningService provisioning;
 
-    public ExpenseService(ExpenseDao expenseDao, BudgetPeriodDao periodDao, Clock clock) {
+    public ExpenseService(ExpenseDao expenseDao, BudgetPeriodDao periodDao, Clock clock,
+                          PeriodProvisioningService provisioning) {
         this.expenseDao = expenseDao;
         this.periodDao = periodDao;
         this.clock = clock;
+        this.provisioning = provisioning;
     }
 
     @Transactional
@@ -66,7 +69,16 @@ public class ExpenseService {
         return ServiceValues.expense(expenseDao.save(expense));
     }
 
+    @Transactional
+    public void deleteExpense(UUID expenseId) {
+        Objects.requireNonNull(expenseId, "expenseId");
+        ExpenseEntity expense = expenseDao.findById(expenseId)
+                .orElseThrow(() -> new ResourceNotFoundException("支出が見つかりません"));
+        expenseDao.delete(expense);
+    }
+
     private BudgetPeriodEntity periodFor(LocalDate date) {
+        provisioning.ensureDate(date);
         return periodDao.findContainingDate(date)
                 .orElseThrow(() -> new ResourceNotFoundException("支出日に対応する月度が見つかりません"));
     }

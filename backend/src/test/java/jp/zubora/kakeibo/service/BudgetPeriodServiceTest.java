@@ -109,6 +109,13 @@ class BudgetPeriodServiceTest {
     }
 
     @Test
+    void unpublishedFutureHolidaysUseWeekendOnlySoDecember2030CanBeOpened() {
+        PeriodRangeResult december = service.calculatePeriod(YearMonth.of(2030, 12), rule(1, true));
+        assertEquals(LocalDate.of(2030, 11, 29), december.startDate());
+        assertEquals(LocalDate.of(2030, 12, 31), december.endDate());
+    }
+
+    @Test
     void yearBoundaryRequiresCoverageForTheYearReachedByAdjustment() {
         when(coverageDao.existsById((short) 2027)).thenReturn(true);
         when(coverageDao.existsById((short) 2026)).thenReturn(true);

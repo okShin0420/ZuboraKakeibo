@@ -1,6 +1,6 @@
 # Backend / Database
 
-ズボラ会計簿のSpring Bootアプリケーション、SQLite接続、Flywayマイグレーション、Entity、DAOを置く領域です。
+ズボラ家計簿のSpring Bootアプリケーション、SQLite接続、Flywayマイグレーション、Entity、DAOを置く領域です。
 
 - 今回の開発：Spring Boot + SQLite
 - PostgreSQL、クラウド同期、課金：今回の対象外

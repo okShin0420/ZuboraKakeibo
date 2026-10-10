@@ -75,9 +75,22 @@ export async function installApiMock(page: Page, initiallyInitialized = true) {
       entry.spentOn = String(body?.spentOn)
       return respond(entry)
     }
+    if (path.startsWith('/expenses/') && method === 'DELETE') {
+      const index = entries.findIndex(item => item.id === path.split('/').at(-1))
+      if (index < 0) return respond({ code: 'NOT_FOUND', message: '支出が見つかりません', fieldErrors: {}, timestamp: instant }, 404)
+      spent -= entries[index].amount
+      entries.splice(index, 1)
+      return route.fulfill({ status: 204, body: '' })
+    }
     if (path === '/calendar' && method === 'GET') {
       const month = url.searchParams.get('month')
-      if (month !== '2026-09') return respond({ code: 'NOT_FOUND', message: '対象の月度が見つかりません', fieldErrors: {}, timestamp: instant }, 404)
+      if (month !== '2026-09') {
+        if (!month || month < '2026-01' || month > '2030-12') return respond({ code: 'NOT_FOUND', message: '対象の月度が見つかりません', fieldErrors: {}, timestamp: instant }, 404)
+        const next = new Date(`${month}-18T00:00:00Z`)
+        next.setUTCMonth(next.getUTCMonth() + 1)
+        next.setUTCDate(next.getUTCDate() - 1)
+        return respond({ month, periodStart: `${month}-18`, periodEnd: next.toISOString().slice(0, 10), dailyTotals: [] })
+      }
       const totals = new Map<string, number>()
       for (const entry of entries) totals.set(entry.spentOn, (totals.get(entry.spentOn) ?? 0) + entry.amount)
       return respond({ month, periodStart: '2026-09-18', periodEnd: '2026-10-17',

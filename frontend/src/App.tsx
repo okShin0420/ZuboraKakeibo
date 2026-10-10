@@ -76,7 +76,7 @@ export function App() {
         adjustForWeekendsAndHolidays: changes.adjustForWeekendsAndHolidays ?? settings.adjustForWeekendsAndHolidays,
       })
       setSettings(saved)
-      setRevision(value => value + 1)
+      await refreshHome()
     } catch (error) {
       setSettingsError(errorMessage(error))
     } finally {
@@ -107,6 +107,7 @@ export function App() {
   const navigate = (tab: NavigationTab) => setScreen(tab)
   const homeModel: HomeViewModel | null = home && {
     month: Number(home.labelMonth.slice(5, 7)),
+    budgetAmount: home.budgetAmount,
     remainingBudget: home.remainingAmount,
     remainingDays: home.remainingDays,
     todayExpense: home.todayExpense,
@@ -122,7 +123,7 @@ export function App() {
         {status === 'ready' && homeModel && settings && <>
           {message && <div className="api-inline-error" role="alert">{message}<button type="button" onClick={() => { setMessage(''); void refreshHome().catch(error => setMessage(errorMessage(error))) }}>再読み込み</button></div>}
           {screen === 'グラフ' && <GraphScreen onNavigate={navigate} initialYear={Number(asOf.slice(0, 4))} initialMonth={Number(asOf.slice(5, 7))} revision={revision} />}
-          {screen === 'カレンダー' && <CalendarScreen onNavigate={navigate} initialMonth={asOf.slice(0, 7)} initialDay={Number(asOf.slice(8, 10))} revision={revision} onExpenseSaved={refreshHome} />}
+          {screen === 'カレンダー' && <CalendarScreen onNavigate={navigate} initialMonth={(home?.labelMonth ?? asOf).slice(0, 7)} initialDate={asOf} revision={revision} onExpenseSaved={refreshHome} />}
           {(screen === 'ホーム' || screen === '設定' || screen === '今月使える金額設定') && <HomeScreen model={homeModel} onNavigate={navigate} onOpenSettings={() => setScreen('設定')} onSaveExpense={draft => saveExpense(draft, asOf)} />}
           {screen === '設定' && <SettingsScreen
             budget={settings.currentBudgetAmount}
@@ -142,7 +143,7 @@ export function App() {
           {screen === '今月使える金額設定' && <SettingMoneyScreen budget={settings.currentBudgetAmount} onClose={() => setScreen('設定')} onSave={saveBudget} />}
         </>}
       </div>
-      <p className="preview-caption">ズボラ会計簿 <span>／</span> {status === 'setup' ? '初期設定' : screen}画面</p>
+      <p className="preview-caption">ズボラ家計簿 <span>／</span> {status === 'setup' ? '初期設定' : screen}画面</p>
     </div>
   )
 }
