@@ -1,0 +1,43 @@
+{
+  "expo": {
+    "name": "ズボラ家計簿",
+    "slug": "zubora-kakeibo",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/apple-icon-ios-fullbleed.png",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": false,
+      "icon": "./assets/apple-icon-ios-fullbleed.png"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#017AF4",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-sqlite",
+      "expo-notifications",
+      "expo-image",
+      "expo-sharing",
+      "expo-font",
+      [
+        "expo-splash-screen",
+        {
+          "ios": {
+            "backgroundColor": "#017AF4",
+            "image": "./assets/ios-launch-screen.png",
+            "resizeMode": "cover",
+            "enableFullScreenImage_legacy": true
+          }
+        }
+      ]
+    ]
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "name": "zubora-kakeibo-mobile",
+  "version": "0.1.0",
+  "main": "index.ts",
+  "dependencies": {
+    "@expo/metro-runtime": "~57.0.16",
+    "expo": "~57.0.26",
+    "expo-blur": "~57.0.3",
+    "expo-crypto": "~57.0.3",
+    "expo-document-picker": "~57.0.3",
+    "expo-file-system": "~57.0.7",
+    "expo-font": "~57.0.4",
+    "expo-image": "~57.0.5",
+    "expo-linear-gradient": "~57.0.2",
+    "expo-notifications": "~57.0.22",
+    "expo-sharing": "~57.0.22",
+    "expo-splash-screen": "~57.0.9",
+    "expo-sqlite": "~57.0.3",
+    "expo-status-bar": "~57.0.1",
+    "lucide-react-native": "^1.52.0",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "react-native": "0.86.3",
+    "react-native-svg": "15.15.4",
+    "react-native-web": "^0.21.2"
+  },
+  "devDependencies": {
+    "@expo/ngrok": "^4.1.0",
+    "@types/react": "~19.2.2",
+    "typescript": "~6.0.3"
+  },
+  "scripts": {
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web",
+    "test": "node --experimental-strip-types --experimental-sqlite --test src/domain/homeMessage.test.mjs src/domain/period.test.mjs src/repository/LocalRepository.test.mjs src/notifications/monthlyNotifications.test.mjs src/backup/backupFiles.test.mjs src/legal/privacyPolicy.test.mjs src/startup/StartupBoundary.test.mjs"
+  },
+  "private": true
+}

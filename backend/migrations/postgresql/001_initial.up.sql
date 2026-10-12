@@ -12,7 +12,6 @@ CREATE TABLE app_settings (
 CREATE TABLE budget_cycle_rules (
   id UUID PRIMARY KEY,
   start_day SMALLINT NOT NULL CHECK (start_day BETWEEN 1 AND 28),
-  closing_day SMALLINT CHECK (closing_day BETWEEN 1 AND 28),
   adjust_for_weekends_and_holidays BOOLEAN NOT NULL DEFAULT TRUE,
   effective_from DATE NOT NULL UNIQUE,
   effective_to DATE CHECK (effective_to IS NULL OR effective_to >= effective_from),

@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=390, initial-scale=1" />
+  <title>新しい月度の金額設定・プレビュー</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #edf4fb; font-family: -apple-system, BlinkMacSystemFont, "Hiragino Kaku Gothic ProN", sans-serif; }
+    .phone { position: relative; width: 390px; height: 844px; margin: 0 auto; overflow: hidden;
+      background: #017af4; color: white; }
+    .status { position: absolute; z-index: 3; top: 13px; left: 28px; right: 28px; display: flex; justify-content: space-between; font-size: 14px; font-weight: 700; }
+    .top { position: absolute; top: 142px; left: 0; right: 0; text-align: center; }
+    .eyebrow { font-size: 20px; font-weight: 600; }
+    .amount { position: absolute; left: 26px; top: 224px; width: 338px; height: 110px; padding: 20px 23px; text-align: center; }
+    .amount-label { color: #ffffffe8; font-size: 17px; font-weight: 600; }
+    .number-line { position: relative; display: flex; align-items: center; justify-content: center; margin-top: 7px; }
+    .number-line::after { content: ""; position: absolute; left: calc(50% + 34px); width: 2px; height: 42px; border-radius: 1px; background: white; animation: blink 960ms steps(2, start) infinite; }
+    @keyframes blink { to { opacity: 0; } }
+    .number { font-family: ui-rounded,-apple-system,sans-serif; font-size: 48px; font-weight: 600; letter-spacing: -1.8px; text-align: center; }
+    .start { position: absolute; left: 26px; top: 460px; width: 338px; height: 60px; border-radius: 30px;
+      background: white; color: #017af4; display: flex; align-items: center; justify-content: center; gap: 9px;
+      font-size: 17px; font-weight: 700; box-shadow: 0 6px 12px #034c9d2e; }
+    .keypad { position: absolute; left: 0; right: 0; bottom: 0; height: 314px; background: #DFE1E5; color: #152739; padding: 10px 13px 15px; }
+    .quick { display: flex; height: 52px; align-items: center; border-bottom: 1px solid #C9CDD1; color: #152739; }
+    .quick span { flex: 1; text-align: center; font-size: 16px; font-weight: 600; }
+    .keys { display: grid; grid-template-columns: repeat(3,1fr); gap: 7px; margin-top: 7px; }
+    .keys span { height: 52px; display: grid; place-items: center; background: white; border-radius: 13px; font-size: 25px; font-weight: 600; }
+    .keys span.blank { background: transparent; }
+    .home-indicator { position: absolute; left: 135px; bottom: 7px; width: 120px; height: 4px; border-radius: 5px; background: #ffffffc0; }
+  </style>
+</head>
+<body>
+  <div class="phone">
+    <div class="status"><span>9:41</span><span>▰▰▰ ◉ ▰</span></div>
+    <div class="top"><div class="eyebrow">新しい月度がはじまりました</div></div>
+    <div class="amount"><div class="amount-label">今月使えるお金を設定</div><div class="number-line"><div class="number">¥0</div></div></div>
+    <div class="start">家計簿をはじめる <span>→</span></div>
+    <div class="keypad"><div class="quick"><span>¥5,000</span><span>¥1,000</span><span>¥2,000</span></div><div class="keys"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span><span class="blank"></span><span>0</span><span class="blank">⌫</span></div></div>
+    <div class="home-indicator"></div>
+  </div>
+</body>
+</html>

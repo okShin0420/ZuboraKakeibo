@@ -1,4 +1,4 @@
-# ズボラ会計簿アプリ 画面遷移図
+# ズボラ家計簿アプリ 画面遷移図
 
 ```mermaid
 flowchart TD
@@ -32,8 +32,8 @@ flowchart TD
 
     home -->|設定| monthlySetting
     monthlySetting -->|月初通知を切り替える| monthlySetting
-    monthlySetting -->|月初めの日・締め日を設定する| monthlySetting
-    monthlySetting -->|締め日の土日祝自動調整を切り替える| monthlySetting
+    monthlySetting -->|月度の開始日を設定する| monthlySetting
+    monthlySetting -->|終了日の土日祝自動調整を切り替える| monthlySetting
     monthlySetting -->|各月の使える金額の編集| monthlySetting
 ```
 
@@ -48,5 +48,4 @@ flowchart TD
 | 日別明細 | 選択した日に記録した支出を確認する画面。 |
 | グラフ | 月ごとの支出状況を確認する画面。 |
 | 月次レポート | 選択した月のやりくりを振り返る画面。 |
-| 月次設定 | 予算・通知・月初めの日・締め日を設定する画面。 |
-
+| 月次設定 | 予算・通知・月度の開始日・土日祝による終了日の自動調整を設定する画面。 |
