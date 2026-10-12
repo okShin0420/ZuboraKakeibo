@@ -14,6 +14,7 @@
     "expo-linear-gradient": "~57.0.2",
     "expo-notifications": "~57.0.22",
     "expo-sharing": "~57.0.22",
+    "expo-splash-screen": "~57.0.9",
     "expo-sqlite": "~57.0.3",
     "expo-status-bar": "~57.0.1",
     "lucide-react-native": "^1.52.0",
@@ -33,7 +34,7 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "test": "node --experimental-strip-types --experimental-sqlite --test src/domain/homeMessage.test.mjs src/domain/period.test.mjs src/repository/LocalRepository.test.mjs src/notifications/monthlyNotifications.test.mjs"
+    "test": "node --experimental-strip-types --experimental-sqlite --test src/domain/homeMessage.test.mjs src/domain/period.test.mjs src/repository/LocalRepository.test.mjs src/notifications/monthlyNotifications.test.mjs src/backup/backupFiles.test.mjs src/legal/privacyPolicy.test.mjs src/startup/StartupBoundary.test.mjs"
   },
   "private": true
 }

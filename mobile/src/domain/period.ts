@@ -1,3 +1,8 @@
+// 公表済みの同梱データと画面の説明を合わせる。年追加時には両方を更新する。
+export const BUNDLED_HOLIDAY_YEARS = [2025, 2026, 2027] as const;
+export const FIRST_WEEKEND_ONLY_YEAR = BUNDLED_HOLIDAY_YEARS.at(-1)! + 1;
+export const HOLIDAY_COVERAGE_NOTICE = `${BUNDLED_HOLIDAY_YEARS[0]}〜${BUNDLED_HOLIDAY_YEARS.at(-1)}年の祝日に対応。${FIRST_WEEKEND_ONLY_YEAR}年以降の未収録年は、祝日を含めず土日のみ調整します。`;
+
 export type IsoDate = string;
 export type YearMonth = string;
 
@@ -72,7 +77,9 @@ function adjustedStart(scheduled: IsoDate, rule: CycleRule, calendar: HolidayCal
   let date = scheduled;
   while (true) {
     const year = Number(date.slice(0, 4));
-    if (!calendar.coveredYears.has(year) && year < 2028) {
+    // 2028年以降の未収録年だけは暫定的に土日で調整する。
+    // 完全な祝日データが登録された年は、その祝日も反映する。
+    if (!calendar.coveredYears.has(year) && year < FIRST_WEEKEND_ONLY_YEAR) {
       throw new Error(`月度開始日の祝日データが不足しています: ${year}`);
     }
     const dayOfWeek = parseIsoDate(date).getUTCDay();

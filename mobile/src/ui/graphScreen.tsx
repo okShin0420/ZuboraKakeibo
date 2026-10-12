@@ -84,9 +84,8 @@ export function GraphScreen({ revision, initialMonth, onSettings }: { revision: 
       <View style={[styles.heroCopy, compact && styles.compactHeroCopy]}>
         <Text style={[styles.heroHeading, compact && styles.compactHeroHeading]}>やりくり金額</Text>
         <Text style={[styles.heroMonth, compact && styles.compactHeroMonth]}>{selectedMonth}月</Text>
-        <ScrollView horizontal bounces={false} showsHorizontalScrollIndicator={false} style={styles.heroAmountViewport}>
-          <Text numberOfLines={1} style={[styles.heroAmount, compact && styles.compactHeroAmount]}>{selectedAmount}</Text>
-        </ScrollView>
+        <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.48}
+          style={[styles.heroAmount, compact && styles.compactHeroAmount]}>{selectedAmount}</Text>
       </View>
       <Image source={dogImage} contentFit="contain" cachePolicy="memory-disk" style={[styles.heroDog, compact && styles.compactHeroDog]}
         accessibilityElementsHidden importantForAccessibility="no-hide-descendants" />
@@ -100,7 +99,7 @@ export function GraphScreen({ revision, initialMonth, onSettings }: { revision: 
         <Text style={[styles.unit, compact && styles.compactUnit]}>万円</Text>
         <View style={[styles.amountCard, { left: cardLeft, width: cardWidth }]}>
           <Text style={styles.cardMonth}>{selectedMonth}月</Text>
-          <Text numberOfLines={1} style={styles.cardAmount}>{selectedAmount}</Text>
+          <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.55} style={styles.cardAmount}>{selectedAmount}</Text>
         </View>
         <View style={[styles.selectedLine, { left: center, height: plotHeight + 8 }]} />
         <View style={[styles.axisLabels, compact && styles.compactAxisLabels, { height: plotHeight }]}>
@@ -160,8 +159,7 @@ const styles = StyleSheet.create({
   compactHeroHeading: { fontSize: 19 },
   heroMonth: { fontFamily: 'ui-rounded', color: colors.white, fontSize: 14, fontWeight: '600', marginTop: 14 },
   compactHeroMonth: { fontSize: 12, marginTop: 12 },
-  heroAmountViewport: { width: '100%' },
-  heroAmount: { fontFamily: 'ui-rounded', color: colors.white, fontSize: 40, fontWeight: '600', letterSpacing: -1.2, marginTop: 0 },
+  heroAmount: { width: '100%', fontFamily: 'ui-rounded', color: colors.white, fontSize: 40, fontWeight: '600', letterSpacing: -1.2, marginTop: 0 },
   compactHeroAmount: { fontSize: 32 },
   content: { paddingHorizontal: 20, paddingBottom: 24 },
   compactContent: { paddingHorizontal: 14, paddingBottom: 20 },

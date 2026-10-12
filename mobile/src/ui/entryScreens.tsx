@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { BlurView } from 'expo-blur';
 import { Image } from 'expo-image';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Check, X } from 'lucide-react-native';
 import {
   Animated, Keyboard, Modal, Pressable, ScrollView,
@@ -41,19 +40,17 @@ export function MoneyScreen({ initialAmount, setup, onSave, onClose, onRestore, 
     <Animated.View style={[styles.moneySheet, { height: Math.min(height - 28, 730) }, !setup && sheetStyle]}>
       <View style={[styles.header, compact && styles.compactHeader]}>
         <View style={styles.headerSide} />
-        <Text style={styles.headerTitle}>今月使える金額</Text>
+        <Text style={[styles.headerTitle, styles.moneyHeaderTitle]}>今月使える金額</Text>
         {setup ? <View style={styles.headerSide} /> : <Pressable accessibilityRole="button" accessibilityLabel="金額設定を閉じる"
           onPress={() => close()} style={styles.closeButton}><X size={16} color={colors.ink} /></Pressable>}
       </View>
       <ScrollView contentContainerStyle={styles.moneyContent} showsVerticalScrollIndicator={false}>
-        <LinearGradient colors={['#017AF4', '#66A1FB', '#B8D9FF']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[styles.guide, compact && styles.compactGuide]}>
-          <LinearGradient pointerEvents="none" colors={['#FDBAB200', '#FDBAB25C']}
-            start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={StyleSheet.absoluteFill} />
+        <View style={[styles.guide, compact && styles.compactGuide]}>
           <View style={styles.guideBubble}><Text style={styles.guideText}>今月使えるお金を決めよう。</Text></View>
           <Image source={dogImage} contentFit="contain" cachePolicy="memory-disk" style={styles.guideDog} />
-        </LinearGradient>
+        </View>
         <View style={[styles.budgetEntry, compact && styles.compactBudgetEntry]}>
-          <View style={styles.moneyAmountRow}><Text style={styles.moneyCurrency}>¥</Text><Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.62} style={styles.moneyAmount}>{yen(Number(amount) || 0)}</Text><AmountCaret /></View>
+          <View style={styles.moneyAmountRow}><Text style={styles.moneyCurrency}>¥</Text><Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.48} style={styles.moneyAmount}>{yen(Number(amount) || 0)}</Text><AmountCaret color={colors.blue} /></View>
           {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
           <PrimaryButton label={busy ? '保存中…' : '保存する'} onPress={() => void save()}
             disabled={busy || Number(amount) < 0} style={styles.budgetSave} />
@@ -118,7 +115,7 @@ export function ExpenseSheet({ initial, onClose, onSave }: {
             accessibilityState={{ expanded: inputMode === 'amount' }}
             onPress={() => { Keyboard.dismiss(); setInputMode('amount'); }} style={styles.amountTrigger}>
             <View style={styles.expenseAmountRow}>
-              <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.62} style={styles.expenseAmount}>
+              <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.48} style={styles.expenseAmount}>
                 <Text style={styles.expenseCurrency}>¥</Text>{yen(Number(amount) || 0)}
               </Text>
               {inputMode === 'amount' && <AmountCaret />}
@@ -136,7 +133,7 @@ export function ExpenseSheet({ initial, onClose, onSave }: {
           {inputMode === 'amount' && <>
             <View style={styles.expensePadSpacer} />
             <View style={[styles.expensePad, compact && styles.compactExpensePad]}>
-              <NumberPad value={amount} onChange={setAmount} compact={compact} />
+              <NumberPad value={amount} onChange={setAmount} compact={compact} quickAmounts={[1000, 2000, 5000]} />
             </View>
           </>}
         </ScrollView>
@@ -149,7 +146,7 @@ const styles = StyleSheet.create({
   moneyOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'transparent' },
   modalFill: { flex: 1, justifyContent: 'flex-end' },
   backdrop: { ...StyleSheet.absoluteFill, backgroundColor: '#073F4566' },
-  moneySheet: { borderTopLeftRadius: 30, borderTopRightRadius: 30, backgroundColor: colors.soft,
+  moneySheet: { borderTopLeftRadius: 30, borderTopRightRadius: 30, backgroundColor: colors.white,
     overflow: 'hidden', borderWidth: 1, borderColor: colors.white },
   expenseSheet: { borderTopLeftRadius: 30, borderTopRightRadius: 30, backgroundColor: colors.soft,
     overflow: 'hidden', borderWidth: 1, borderColor: colors.white },
@@ -157,9 +154,10 @@ const styles = StyleSheet.create({
   compactHeader: { paddingHorizontal: 26 },
   headerSide: { width: 30 },
   headerTitle: { flex: 1, textAlign: 'center', color: colors.ink, fontSize: 15, fontWeight: '700' },
+  moneyHeaderTitle: { color: colors.ink },
   closeButton: { width: 30, height: 30, borderRadius: 15, backgroundColor: '#E7ECEC', alignItems: 'center', justifyContent: 'center' },
   moneyContent: { flexGrow: 1 },
-  guide: { height: 160, marginHorizontal: 20, borderRadius: 24, overflow: 'hidden' },
+  guide: { height: 160, marginHorizontal: 20, borderRadius: 24, overflow: 'hidden', backgroundColor: '#017AF4' },
   compactGuide: { marginHorizontal: 14 },
   guideBubble: { position: 'absolute', zIndex: 2, top: 18, left: 18, borderRadius: 14, borderWidth: 1,
     borderColor: colors.white, backgroundColor: '#FFFFFFF2', paddingHorizontal: 14, paddingVertical: 10 },
@@ -169,7 +167,7 @@ const styles = StyleSheet.create({
   compactBudgetEntry: { paddingHorizontal: 14 },
   moneyAmountRow: { height: 82, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7 },
   moneyAmount: { fontFamily: 'ui-rounded', flexShrink: 1, color: colors.ink, fontSize: 47, fontWeight: '600', letterSpacing: -1.7 },
-  moneyCurrency: { fontFamily: 'ui-rounded', fontSize: 20, fontWeight: '600', letterSpacing: 0 },
+  moneyCurrency: { fontFamily: 'ui-rounded', color: colors.ink, fontSize: 20, fontWeight: '600', letterSpacing: 0 },
   budgetSave: { minHeight: 50, marginTop: 4 },
   setupRestoreButton: { alignSelf: 'center', minHeight: 44, justifyContent: 'center', paddingHorizontal: 16, marginTop: 10 },
   setupRestoreText: { color: colors.blue, fontSize: 12, fontWeight: '700' },

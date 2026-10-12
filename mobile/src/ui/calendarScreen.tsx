@@ -79,7 +79,7 @@ function SwipeableExpenseRow({ expense, open, deleting, onSwipe, onEdit, onDelet
       <Pressable accessibilityRole="button" accessibilityLabel={`${expense.memo || 'メモなし'}、${yen(expense.amount)}円を編集。左へスワイプして削除`}
         onPress={() => { if (Date.now() - lastSwipeAt.current < 400) return; if (open) onSwipe(null); else onEdit(); }}
         style={styles.expensePressable}>
-        <Text style={styles.expenseMemo}>{expense.memo || 'メモなし'}</Text><Text style={styles.expenseAmount}>¥{yen(expense.amount)}</Text>
+        <Text style={styles.expenseMemo}>{expense.memo || 'メモなし'}</Text><Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.55} style={styles.expenseAmount}>¥{yen(expense.amount)}</Text>
       </Pressable>
     </Animated.View>
   </Animated.View>;
@@ -173,7 +173,7 @@ export function CalendarScreen({ revision, initialMonth, initialPeriod, onExpens
             accessibilityState={{ selected: active }} onPress={() => { if (selected !== date) { setDaily(null); setSelected(date); } }}
             style={[styles.day, { height: dayHeight }, active && styles.selectedDay]}>
             <Text style={[styles.dayNumber, active && styles.selectedText, (date === calendar?.periodStart || day === 1) && styles.monthDayNumber]}>{date === calendar?.periodStart || day === 1 ? `${dateMonth}/${day}` : day}</Text>
-            {amount > 0 && <Text numberOfLines={1} style={[styles.dayAmount, active && styles.selectedAmount]}>¥{yen(amount)}</Text>}
+            {amount > 0 && <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.35} style={[styles.dayAmount, active && styles.selectedAmount]}>¥{yen(amount)}</Text>}
           </Pressable>;
         })}</View>
       </View>
@@ -261,7 +261,7 @@ const styles = StyleSheet.create({
   deleteButton: { position: 'absolute', right: 0, top: 0, bottom: 0, width: 72, borderRadius: 27, backgroundColor: '#FF3640', alignItems: 'center', justifyContent: 'center' },
   deleteSymbol: { width: 28, height: 28, borderRadius: 14, backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center' },
   expenseMemo: { flex: 1, color: colors.ink, fontSize: 13, fontWeight: '700' },
-  expenseAmount: { fontFamily: 'ui-rounded', color: colors.ink, fontSize: 16, fontWeight: '600' },
+  expenseAmount: { maxWidth: '55%', flexShrink: 1, fontFamily: 'ui-rounded', color: colors.ink, fontSize: 16, fontWeight: '600' },
   error: { color: '#B33340', marginVertical: 8, fontSize: 13 },
   pickerOverlay: { flex: 1, justifyContent: 'flex-end' },
   pickerBackdrop: { backgroundColor: '#073F4566' },

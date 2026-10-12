@@ -39,11 +39,11 @@ function BudgetWelcomeScreen({ testID, title, buttonLabel, onStart, onRestore, r
       <View accessibilityLabel={`今月使える金額 ${yen(value)}円`} style={[styles.amountCard, compact && styles.amountCardCompact]}>
         <Text style={styles.amountLabel}>今月使えるお金を設定</Text>
         <View style={styles.amountLine} onLayout={event => setAmountLineWidth(event.nativeEvent.layout.width)}>
-          <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.62}
+          <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.48}
             onLayout={event => setAmountTextWidth(event.nativeEvent.layout.width)}
             style={[styles.amount, compact && styles.amountCompact]}>¥{yen(value)}</Text>
           {amountLineWidth > 0 && amountTextWidth > 0 && <View pointerEvents="none"
-            style={[styles.amountCaretPosition, { left: (amountLineWidth + amountTextWidth) / 2 + 5 }]}>
+            style={[styles.amountCaretPosition, { left: Math.min(amountLineWidth - 2, (amountLineWidth + amountTextWidth) / 2 + 5) }]}>
             <AmountCaret color="#FFFFFF" />
           </View>}
         </View>

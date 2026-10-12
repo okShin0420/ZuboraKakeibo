@@ -89,3 +89,14 @@ export function syncMonthlyNotifications(settings: Settings, getDates: () => Pro
   previousSync = next;
   return next;
 }
+
+export function cancelMonthlyNotifications(): Promise<void> {
+  const next = previousSync.catch(() => undefined).then(async () => {
+    if (Platform.OS === 'web') return;
+    const existing = (await Notifications.getAllScheduledNotificationsAsync())
+      .filter(request => request.content.data?.[MANAGED_KEY] === true);
+    for (const request of existing) await Notifications.cancelScheduledNotificationAsync(request.identifier);
+  });
+  previousSync = next;
+  return next;
+}

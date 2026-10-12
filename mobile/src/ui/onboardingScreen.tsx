@@ -2,9 +2,9 @@ import { useEffect, useRef, useState } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Image } from 'expo-image';
 import { AccessibilityInfo, Animated, Easing, Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
-import Svg, { Defs, LinearGradient as SvgLinearGradient, Path, Rect, Stop } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
 
-import { onboardingCalendarGraphPhonesImage, onboardingExpensePhoneImage, onboardingOriginalPhoneImage } from './imageAssets';
+import { onboardingCalendarGraphPhonesImage, onboardingExpensePhoneImage, onboardingHomePhoneImage } from './imageAssets';
 
 type OnboardingProps = {
   page: number;
@@ -82,24 +82,15 @@ function OnboardingPage({ page, onBack, onSkip, disabled, revealProgress, reduce
 
         <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill,
           { opacity: imageOpacity, transform: [{ translateY: imageRise }] }]}>
-        <Image source={onboardingOriginalPhoneImage} contentFit="contain" cachePolicy="memory-disk"
-          accessibilityLabel="犬と今月あと使えるお金を表示したスマホ画面の見本"
-          style={frame(50, 307, 280, 584)} />
-        <Svg pointerEvents="none" width={48 * 280 / 595 * scale} height={30 * 280 / 595 * scale}
-          viewBox="0 0 48 30"
-          style={frame(50 + 477 * 280 / 595, 307 + 70 * 280 / 595,
-            48 * 280 / 595, 30 * 280 / 595)}>
-          <Defs>
-            <SvgLinearGradient id="batterySky" x1="0" y1="0" x2="1" y2="0">
-              <Stop offset="0" stopColor="#0075ED" />
-              <Stop offset="1" stopColor="#0179F3" />
-            </SvgLinearGradient>
-          </Defs>
-          <Rect x={0} y={0} width={48} height={30} fill="url(#batterySky)" />
-          <Rect x={3} y={4} width={39} height={22} rx={5} fill="none" stroke="#FFFFFF" strokeWidth={2} />
-          <Rect x={6} y={7} width={33} height={16} rx={3} fill="#FFFFFF" />
-          <Rect x={44} y={10} width={3} height={10} rx={1.5} fill="#FFFFFF" />
-        </Svg>
+        <View accessibilityLabel="犬と今月あと使えるお金を表示したスマホ画面の見本"
+          style={[frame(49.5 + 294 * 21 / 543, 295 + 584 * 16 / 1080,
+            294 * 501 / 543, 584 * 1049 / 1080), {
+            overflow: 'hidden', borderRadius: 47 * scale,
+          }]}>
+          <Image source={onboardingHomePhoneImage} contentFit="fill" cachePolicy="memory-disk"
+            style={{ position: 'absolute', left: -294 * 21 / 543 * scale,
+              top: -584 * 16 / 1080 * scale, width: 294 * scale, height: 584 * scale }} />
+        </View>
         </Animated.View>
 
       </> : page === 1 ? <>
@@ -175,13 +166,15 @@ function OnboardingFooter({ page, width, height, scale, error, busy, disabled, o
       frame(28, page === 2 ? 718 : 715, 337, 20)]}>{error}</Text> : null}
     {page === 2 ? <Pressable accessibilityRole="button" accessibilityLabel="今月使えるお金を決めよう"
       disabled={disabled} accessibilityState={{ disabled }} onPress={onNext}
-      style={[frame(31, 750, 331, 52), styles.nextButton, { borderRadius: 18 * scale }]}>
+      style={[frame((ARTBOARD_WIDTH - 331) / 2, 750, 331, 52), styles.nextButton,
+        { borderRadius: 18 * scale }]}>
       <Text style={[styles.finishText, { fontSize: 17 * scale, lineHeight: 25 * scale }]}>
         {busy ? '保存中…' : '今月使えるお金を決めよう'}
       </Text>
     </Pressable> : <Pressable accessibilityRole="button" accessibilityLabel="次の説明へ"
       disabled={disabled} accessibilityState={{ disabled }} onPress={onNext}
-      style={[frame(154, 740, 74, 50), styles.nextButton, { borderRadius: 16 * scale }]}>
+      style={[frame((ARTBOARD_WIDTH - 74) / 2, 740, 74, 50), styles.nextButton,
+        { borderRadius: 16 * scale }]}>
       <Text style={[styles.arrow, { fontSize: 23 * scale, lineHeight: 27 * scale }]}>{busy ? '…' : '→'}</Text>
     </Pressable>}
   </View>;
@@ -283,14 +276,7 @@ export function OnboardingScreen(props: OnboardingProps) {
       style={{ position: 'absolute', left: artboardLeft, top: artboardTop + 658 * scale }}>
       <Path d="M0 66 C69 19 129 7 194 9 C267 9 340 26 393 66 L393 194 L0 194 Z" fill="#017AF4" />
     </Svg>
-    {leavingPage !== null && <Animated.View pointerEvents="none" accessibilityElementsHidden
-      importantForAccessibility="no-hide-descendants"
-      style={[StyleSheet.absoluteFill, { transform: [{ translateX: leavingX }] }]}>
-      <OnboardingFooter {...footerProps} page={leavingPage} />
-    </Animated.View>}
-    <Animated.View pointerEvents="box-none" style={[StyleSheet.absoluteFill, { transform: [{ translateX: incomingX }] }]}>
-      <OnboardingFooter {...footerProps} page={visiblePage} />
-    </Animated.View>
+    <OnboardingFooter {...footerProps} page={visiblePage} />
     <View pointerEvents="none" style={{ position: 'absolute', left: artboardLeft + 173.5 * scale,
       top: artboardTop + 704 * scale }}>
       <PageIndicator page={visiblePage} progress={indicator} scale={scale} />

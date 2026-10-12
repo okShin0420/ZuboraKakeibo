@@ -37,7 +37,7 @@ require.extensions['.ts'] = (module, filename) => {
   }).outputText;
   module._compile(code, filename);
 };
-const { notificationDate, upcomingNotificationTimes, syncMonthlyNotifications } = require('./monthlyNotifications.ts');
+const { cancelMonthlyNotifications, notificationDate, upcomingNotificationTimes, syncMonthlyNotifications } = require('./monthlyNotifications.ts');
 const settings = { monthlyNotificationEnabled: true };
 
 test('通知日時は日本時間で作り、過ぎた時刻は除く', () => {
@@ -67,4 +67,13 @@ test('通知権限が拒否されたら予約しない', async () => {
   assert.match(warning, /許可されていません/);
   assert.equal(prompts, 1);
   assert.equal(scheduled.length, 0);
+});
+
+test('全データ削除時はアプリ管理下の通知だけを取り消す', async () => {
+  scheduled.length = 0; granted = true;
+  await syncMonthlyNotifications(settings, async () => ['2027-01-08']);
+  scheduled.push({ identifier: 'unrelated', content: { data: {} } });
+  await cancelMonthlyNotifications();
+  assert.deepEqual(scheduled.map(request => request.identifier), ['unrelated']);
+  scheduled.length = 0;
 });

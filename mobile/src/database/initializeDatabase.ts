@@ -6,6 +6,17 @@ import { withDatabaseTransaction } from './transaction';
 
 export const DATABASE_NAME = 'zubora-kakeibo.db';
 
+export async function initializeDatabaseForStartup(db: SQLiteDatabase): Promise<void> {
+  try {
+    await initializeDatabase(db);
+  } catch (error) {
+    // ExpoのProviderはonInit失敗時の接続を保持しないため、ここで閉じる。
+    // DBファイルは残し、再試行時には新しい接続で初期化する。
+    try { await db.closeAsync(); } catch { /* 初期化の原因を優先する。 */ }
+    throw error;
+  }
+}
+
 export async function initializeDatabase(db: SQLiteDatabase): Promise<void> {
   // 接続単位で有効にする。トランザクション中の変更はSQLiteに無視される。
   await db.execAsync('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;');

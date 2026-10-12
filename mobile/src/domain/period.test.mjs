@@ -35,3 +35,17 @@ test('祝日coverage不足・範囲逆転・不正な開始日を拒否する', 
   }), /終了日/);
   assert.throws(() => calculatePeriod('2026-09', rule(32), rule(32), EMPTY_HOLIDAY_CALENDAR), /1〜31/);
 });
+
+test('2028年以降の未収録年は土日だけ調整し、年全体の祝日登録後は祝日も反映する', () => {
+  const missing = calculatePeriod('2028-04', rule(3, true), rule(3, true), EMPTY_HOLIDAY_CALENDAR);
+  assert.deepEqual(missing, {
+    labelMonth: '2028-04-01', startDate: '2028-04-03', nominalEndDate: '2028-05-02', endDate: '2028-05-02',
+  });
+  const imported = calculatePeriod('2028-04', rule(3, true), rule(3, true), {
+    coveredYears: new Set([2028]), holidayDates: new Set(['2028-04-03']),
+  });
+  assert.equal(imported.startDate, '2028-03-31');
+  const future = calculatePeriod('2030-06', rule(1, true), rule(1, true), EMPTY_HOLIDAY_CALENDAR);
+  assert.equal(future.startDate, '2030-05-31');
+  assert.equal(future.endDate, '2030-06-30');
+});

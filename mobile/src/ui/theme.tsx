@@ -6,6 +6,7 @@ import { Animated, Pressable, StyleSheet, Text, View, type StyleProp, type ViewS
 import Svg, { Path } from 'react-native-svg';
 
 import { yen } from './format';
+import { MAX_INPUT_DIGITS } from '../domain/amount';
 
 export const colors = {
   blue: '#1E90FF', sky: '#4E8BFA', ink: '#000000', muted: '#637073',
@@ -26,13 +27,13 @@ export function AmountCaret({ color = colors.blue }: { color?: string }) {
   return <Animated.View accessibilityElementsHidden style={[styles.amountCaret, { backgroundColor: color, opacity }]} />;
 }
 
-export function PrimaryButton({ label, onPress, disabled = false, style }: {
-  label: string; onPress: () => void; disabled?: boolean; style?: StyleProp<ViewStyle>;
+export function PrimaryButton({ label, onPress, disabled = false, light = false, style }: {
+  label: string; onPress: () => void; disabled?: boolean; light?: boolean; style?: StyleProp<ViewStyle>;
 }) {
   return <Pressable accessibilityRole="button" disabled={disabled} onPress={onPress}
-    style={[styles.primaryButton, disabled && styles.disabled, style]}>
-    {!disabled && <LinearGradient colors={['#3189F8', '#1E90FF']} style={StyleSheet.absoluteFill} />}
-    <Text style={styles.primaryText}>{label}</Text>
+    style={[styles.primaryButton, light && styles.primaryButtonLight, disabled && styles.disabled, style]}>
+    {!disabled && !light && <LinearGradient colors={['#3189F8', '#1E90FF']} style={StyleSheet.absoluteFill} />}
+    <Text style={[styles.primaryText, light && styles.primaryTextLight]}>{label}</Text>
   </Pressable>;
 }
 
@@ -55,6 +56,10 @@ export function TabBar({ active, onChange }: { active: Tab; onChange: (tab: Tab)
     {tabs.map(({ label, Icon }) => <Pressable key={label} accessibilityRole="tab" accessibilityLabel={label}
       accessibilityState={{ selected: active === label }} onPress={() => onChange(label)} style={styles.tabItem}>
       <View style={[styles.navIcon, active === label && styles.navIconActive]}>
+        {active === label && <View pointerEvents="none" style={styles.navGlassSurface}>
+          <BlurView intensity={52} tint="light" style={StyleSheet.absoluteFill} />
+          <View style={styles.navGlassTint} />
+        </View>}
         <Icon size={23} color={active === label ? colors.blue : '#748183'} strokeWidth={1.8} />
       </View>
       <Text style={[styles.tabText, active === label && styles.active]}>{label}</Text>
@@ -71,7 +76,10 @@ const keyRows = [
 export function NumberPad({ value, onChange, sky = false, compact = false, quickAmounts = [5000, 1000, 2000] }: {
   value: string; onChange: (value: string) => void; sky?: boolean; compact?: boolean; quickAmounts?: number[];
 }) {
-  const append = (digit: string) => onChange(((value === '0' ? '' : value) + digit).slice(0, 9) || '0');
+  const append = (digit: string) => {
+    const next = `${value === '0' ? '' : value}${digit}`;
+    if (next.length <= MAX_INPUT_DIGITS) onChange(next);
+  };
   return <View style={[styles.pad, compact && styles.compactPad, sky && styles.skyPad]}>
     <View style={[styles.quickRow, compact && styles.compactQuickRow, sky && styles.skyQuickRow]}>{quickAmounts.map(amount =>
       <Pressable key={amount} accessibilityRole="button" accessibilityLabel={`${yen(amount)}円を設定`}
@@ -98,7 +106,9 @@ const styles = StyleSheet.create({
   primaryButton: { minHeight: 54, borderRadius: 28, overflow: 'hidden', backgroundColor: colors.blue,
     alignItems: 'center', justifyContent: 'center', marginTop: 16, shadowColor: colors.blue,
     shadowOpacity: 0.22, shadowRadius: 12, shadowOffset: { width: 0, height: 8 }, elevation: 3 },
+  primaryButtonLight: { backgroundColor: colors.white, shadowColor: '#034C9D' },
   primaryText: { color: colors.white, fontSize: 16, fontWeight: '600' },
+  primaryTextLight: { color: '#017AF4' },
   disabled: { backgroundColor: '#A9B9C7', shadowOpacity: 0, elevation: 0 },
   tabBar: { position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 20, height: 88,
     paddingHorizontal: 14, paddingTop: 8, paddingBottom: 12, flexDirection: 'row', overflow: 'hidden',
@@ -106,7 +116,10 @@ const styles = StyleSheet.create({
   tabTint: { ...StyleSheet.absoluteFill, backgroundColor: '#FFFFFFC7' },
   tabItem: { flex: 1, minHeight: 62, alignItems: 'center', justifyContent: 'center', gap: 4 },
   navIcon: { minWidth: 57, minHeight: 31, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
-  navIconActive: { backgroundColor: '#E7F3FF' },
+  navIconActive: { borderWidth: 1, borderColor: '#FFFFFFE6', shadowColor: '#4B9EDF', shadowOpacity: 0.14,
+    shadowRadius: 8, shadowOffset: { width: 0, height: 3 }, elevation: 1 },
+  navGlassSurface: { ...StyleSheet.absoluteFill, borderRadius: 18, overflow: 'hidden' },
+  navGlassTint: { ...StyleSheet.absoluteFill, backgroundColor: '#D6ECFF85' },
   tabText: { color: '#748183', fontSize: 10, fontWeight: '500' },
   active: { color: colors.blue },
   pad: { backgroundColor: '#DFE1E5', paddingHorizontal: 13, paddingTop: 10, paddingBottom: 27, gap: 7,

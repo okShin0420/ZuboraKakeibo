@@ -4,6 +4,7 @@ import { withDatabaseTransaction } from './transaction';
 // 内閣府「国民の祝日について」掲載の祝日・休日（振替休日・国民の休日を含む）。
 // https://www8.cao.go.jp/chosei/shukujitsu/gaiyou.html
 // 公表済みの年だけをcoverageとして登録する。新しい年は公式発表後に更新する。
+// 2026-10-12確認：公表済みの最終年は2027年。2028年は2027年2月掲載予定。
 const source = '内閣府 国民の祝日について';
 export const bundledHolidays: Readonly<Record<number, ReadonlyArray<readonly [string, string]>>> = {
   2025: [

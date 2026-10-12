@@ -1,8 +1,7 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import { PawPrint } from 'lucide-react-native';
-import { useEffect, useRef } from 'react';
-import { Dimensions, Platform, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
-import Svg, { Path } from 'react-native-svg';
+import { useEffect, useRef, useState } from 'react';
+import { Dimensions, Platform, ScrollView, StyleSheet, Text, useWindowDimensions, View, type LayoutChangeEvent } from 'react-native';
+import Svg, { Defs, Ellipse, Path, RadialGradient, Stop } from 'react-native-svg';
 
 import type { Home } from '../repository/types';
 import { AnimatedDog } from './animatedDog';
@@ -19,7 +18,15 @@ export function HomeScreen({ home, onSettings, onExpense }: {
   const compact = width <= 350 || height <= 700;
   const phoneHeight = !compact && height <= 900;
   const shortPhone = phoneHeight && height <= 830;
+  const dogSize = compact ? 155 : shortPhone ? 186 : phoneHeight ? 212 : 237;
+  const [balanceSize, setBalanceSize] = useState<{ width: number; height: number } | null>(null);
   const scrollRef = useRef<ScrollView>(null);
+  const onBalanceLayout = (event: LayoutChangeEvent) => {
+    const { width: cardWidth, height: cardHeight } = event.nativeEvent.layout;
+    if (cardWidth <= 0 || cardHeight <= 0) return;
+    setBalanceSize(current => current?.width === cardWidth && current.height === cardHeight
+      ? current : { width: cardWidth, height: cardHeight });
+  };
   useEffect(() => {
     const timer = setTimeout(() => scrollRef.current?.scrollTo({ y: 0, animated: false }), 100);
     return () => clearTimeout(timer);
@@ -31,24 +38,40 @@ export function HomeScreen({ home, onSettings, onExpense }: {
       <View style={[styles.header, phoneHeight && styles.phoneHeader, shortPhone && styles.shortHeader, compact && styles.compactHeader]}>
         <Text style={styles.month}><Text style={styles.monthNumber}>{Number(home.labelMonth.slice(5, 7))}</Text>月</Text>
       </View>
-      <View style={[styles.glass, phoneHeight && styles.phoneGlass, shortPhone && styles.shortGlass, compact && styles.compactGlass]}>
+      <View style={[styles.dogStage, phoneHeight && styles.phoneDogStage, shortPhone && styles.shortDogStage, compact && styles.compactDogStage]}>
         <View style={[styles.speech, compact && styles.compactSpeech]}><Text style={[styles.speechText, compact && styles.compactSpeechText]}>{home.message}</Text></View>
-        <AnimatedDog size={compact ? 155 : shortPhone ? 186 : phoneHeight ? 200 : 237} />
-        <Svg style={styles.ground} width="100%" height={45} viewBox="0 0 350 45" preserveAspectRatio="none">
-          <Path d="M0 32 Q175 9 350 32 L350 45 H0 Z" fill="#FFFFFF" />
-        </Svg>
+        <View style={[styles.dogOverlap, phoneHeight && styles.phoneDogOverlap,
+          shortPhone && styles.shortDogOverlap, compact && styles.compactDogOverlap,
+          { width: dogSize, height: dogSize }]}>
+          <Svg pointerEvents="none" style={styles.dogFootShadow} width={dogSize * 0.65} height={dogSize * 0.18}
+            viewBox="0 0 200 50">
+            <Defs>
+              <RadialGradient id="dogFootShadow" cx="50%" cy="50%" rx="50%" ry="50%">
+                <Stop offset="0" stopColor="#1C1C1C" stopOpacity="0.42" />
+                <Stop offset="0.52" stopColor="#292929" stopOpacity="0.27" />
+                <Stop offset="1" stopColor="#333333" stopOpacity="0" />
+              </RadialGradient>
+            </Defs>
+            <Ellipse cx="100" cy="25" rx="98" ry="24" fill="url(#dogFootShadow)" />
+          </Svg>
+          <AnimatedDog size={dogSize} />
+        </View>
       </View>
-      <View style={[styles.balance, phoneHeight && styles.phoneBalance, shortPhone && styles.shortBalance, compact && styles.compactBalance]}>
-        {!compact && <View pointerEvents="none" style={styles.paws}>
-          <PawPrint size={15} color="#087E88" fill="#087E88" style={styles.pawLeft} />
-          <PawPrint size={12} color="#087E88" fill="#087E88" style={styles.pawRight} />
-          <PawPrint size={9} color="#087E88" fill="#087E88" style={styles.pawFarRight} />
-        </View>}
-        <Text style={styles.balanceLabel}>今月あとつかえるお金</Text>
-        <ScrollView horizontal bounces={false} showsHorizontalScrollIndicator={false}
-          style={styles.amountScroll} contentContainerStyle={styles.amountScrollContent}>
-          <Text style={[styles.amount, compact && styles.compactAmount]}><Text style={styles.currency}>¥</Text>{yen(home.remainingAmount)}</Text>
-        </ScrollView>
+      <View onLayout={onBalanceLayout} style={[styles.balance, phoneHeight && styles.phoneBalance,
+        shortPhone && styles.shortBalance, compact && styles.compactBalance,
+        balanceSize && styles.measuredBalance]}>
+        {balanceSize && <Svg pointerEvents="none" style={styles.cardShape} width={balanceSize.width}
+          height={balanceSize.height} viewBox={`0 0 ${balanceSize.width} ${balanceSize.height}`}>
+          <Path d={`M28 13 C${balanceSize.width * 0.3} -4 ${balanceSize.width * 0.7} -4 ${balanceSize.width - 28} 13
+            C${balanceSize.width - 10} 15 ${balanceSize.width} 25 ${balanceSize.width} 41
+            L${balanceSize.width} ${balanceSize.height - 26}
+            Q${balanceSize.width} ${balanceSize.height} ${balanceSize.width - 26} ${balanceSize.height}
+            L26 ${balanceSize.height} Q0 ${balanceSize.height} 0 ${balanceSize.height - 26}
+            L0 41 C0 25 10 15 28 13 Z`} fill="#FFFFFF" />
+        </Svg>}
+        <Text style={styles.balanceLabel}>今月あと使えるお金</Text>
+        <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.42}
+          style={[styles.amount, compact && styles.compactAmount]}><Text style={styles.currency}>¥</Text>{yen(home.remainingAmount)}</Text>
         <View style={styles.remainingDays} accessibilityLabel={`残${home.remainingDays}日`}>
           <Text style={styles.remainingDaysText}>残</Text>
           <Text style={styles.remainingDaysNumber}>{home.remainingDays}</Text>
@@ -63,9 +86,11 @@ export function HomeScreen({ home, onSettings, onExpense }: {
           </Svg>
         </View>
         <Text style={styles.todayLabel}>今日つかった</Text>
-        <Text style={styles.todayAmount} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>¥{yen(home.todayExpense)}</Text>
+        <Text style={styles.todayAmount} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.48}>¥{yen(home.todayExpense)}</Text>
       </View>
-      <PrimaryButton label="入力する" onPress={onExpense} style={compact ? styles.compactButton : shortPhone ? styles.shortButton : phoneHeight ? styles.phoneButton : undefined} />
+      <View style={[styles.buttonShadow, compact ? styles.compactButton : shortPhone ? styles.shortButton : phoneHeight ? styles.phoneButton : undefined]}>
+        <PrimaryButton label="入力する" onPress={onExpense} style={styles.buttonInsideShadow} />
+      </View>
     </ScrollView>
     <SettingsButton onPress={onSettings} style={[styles.settingsButton, compact && styles.compactSettingsButton]} />
   </View>;
@@ -82,37 +107,38 @@ const styles = StyleSheet.create({
   phoneHeader: { marginBottom: 14 },
   shortHeader: { marginBottom: 8 },
   compactHeader: { marginBottom: 5 },
-  month: { fontSize: 26, color: colors.white, fontWeight: '600', textShadowColor: '#15517A66', textShadowRadius: 3 },
+  month: { fontFamily: 'ui-rounded', fontSize: 30, lineHeight: 36, color: 'rgba(255, 255, 255, 0.62)', fontWeight: '600', textAlign: 'center' },
   monthNumber: { fontFamily: 'ui-rounded', fontWeight: '600' },
   settingsButton: { position: 'absolute', right: 20, top: 8 },
   compactSettingsButton: { right: 16 },
-  glass: { height: 306, borderWidth: 1, borderBottomWidth: 0, borderColor: '#FFFFFFBB', borderTopLeftRadius: 26,
-    borderTopRightRadius: 26, overflow: 'hidden', alignItems: 'center', justifyContent: 'flex-end' },
-  phoneGlass: { height: 268 },
-  shortGlass: { height: 254 },
-  compactGlass: { height: 209 },
-  speech: { position: 'absolute', top: 18, zIndex: 2, borderRadius: 18, borderWidth: 1, borderColor: colors.white,
-    backgroundColor: '#F4FAFFF0', paddingVertical: 10, paddingHorizontal: 17 },
+  dogStage: { height: 306, alignItems: 'center', justifyContent: 'flex-end', zIndex: 2 },
+  phoneDogStage: { height: 268 },
+  shortDogStage: { height: 254 },
+  compactDogStage: { height: 209 },
+  dogOverlap: { marginBottom: 0, zIndex: 2 },
+  phoneDogOverlap: { marginBottom: -4, transform: [{ translateX: -5 }] },
+  shortDogOverlap: { marginBottom: 0 },
+  compactDogOverlap: { marginBottom: -12 },
+  dogFootShadow: { position: 'absolute', alignSelf: 'center', bottom: -6 },
+  speech: { position: 'absolute', top: 10, zIndex: 2, borderRadius: 18, borderWidth: 1, borderColor: colors.white,
+    backgroundColor: '#DDEFFF', paddingVertical: 10, paddingHorizontal: 17 },
   compactSpeech: { top: 13, paddingVertical: 8, paddingHorizontal: 13 },
   speechText: { fontSize: 12, fontWeight: '600', color: colors.ink },
   compactSpeechText: { fontSize: 11 },
-  ground: { position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 1 },
-  balance: { backgroundColor: colors.white, alignItems: 'center', paddingTop: 24, paddingBottom: 16,
-    marginTop: -1, borderBottomLeftRadius: 26, borderBottomRightRadius: 26 },
-  phoneBalance: { paddingTop: 14, paddingBottom: 12 },
-  shortBalance: { paddingTop: 11, paddingBottom: 8 },
-  compactBalance: { paddingTop: 4, paddingBottom: 8 },
-  paws: { position: 'absolute', left: 22, right: 22, top: 4, height: 22, opacity: 0.55 },
-  pawLeft: { position: 'absolute', left: 0, top: 2, transform: [{ rotate: '-22deg' }] },
-  pawRight: { position: 'absolute', right: 24, top: 0, transform: [{ rotate: '18deg' }] },
-  pawFarRight: { position: 'absolute', right: 0, top: 9, transform: [{ rotate: '35deg' }] },
+  cardShape: { position: 'absolute', inset: 0 },
+  balance: { backgroundColor: colors.white, alignItems: 'center', marginTop: -24,
+    paddingTop: 56, paddingBottom: 28, borderRadius: 26, zIndex: 1,
+    shadowColor: '#175B98', shadowOpacity: 0.1,
+    shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 3 },
+  measuredBalance: { backgroundColor: 'transparent' },
+  phoneBalance: { marginTop: -33, paddingTop: 49, paddingBottom: 18 },
+  shortBalance: { paddingTop: 43, paddingBottom: 20 },
+  compactBalance: { paddingTop: 36, paddingBottom: 20 },
   balanceLabel: { fontSize: 13, color: colors.ink, fontWeight: '600' },
-  amountScroll: { width: '100%', flexGrow: 0 },
-  amountScrollContent: { flexGrow: 1, alignItems: 'center', justifyContent: 'center' },
-  amount: { fontFamily: 'ui-rounded', fontSize: 57, fontWeight: '600', color: '#000000', letterSpacing: -3, marginTop: 7 },
+  amount: { width: '100%', textAlign: 'center', fontFamily: 'ui-rounded', fontSize: 62, fontWeight: '600', color: '#000000', letterSpacing: -3, marginTop: -3 },
   compactAmount: { fontSize: 48, marginTop: 4 },
   currency: { fontFamily: 'ui-rounded', fontSize: 36, fontWeight: '600', letterSpacing: 0 },
-  remainingDays: { marginTop: 8, flexDirection: 'row', alignItems: 'baseline' },
+  remainingDays: { marginTop: 1, flexDirection: 'row', alignItems: 'baseline' },
   remainingDaysText: { color: colors.ink, fontSize: 12, fontWeight: '500' },
   remainingDaysNumber: { fontFamily: 'ui-rounded', color: colors.ink, fontSize: 22, fontWeight: '600' },
   today: { marginTop: 16, minHeight: 68, paddingHorizontal: 17, flexDirection: 'row', alignItems: 'center', gap: 12,
@@ -125,7 +151,11 @@ const styles = StyleSheet.create({
   shortToday: { marginTop: 9 },
   compactToday: { marginTop: 8, minHeight: 60, paddingHorizontal: 12 },
   todayLabel: { flex: 1, minWidth: 0, color: colors.ink, fontSize: 13 },
-  todayAmount: { flexShrink: 1, fontFamily: 'ui-rounded', color: colors.ink, fontSize: 25, fontWeight: '600' },
+  todayAmount: { flexShrink: 1, marginRight: 8, fontFamily: 'ui-rounded', color: colors.ink, fontSize: 25, fontWeight: '600' },
+  buttonShadow: { marginTop: 16, borderRadius: 28, backgroundColor: colors.blue,
+    shadowColor: '#175B98', shadowOpacity: 0.16, shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 }, elevation: 4 },
+  buttonInsideShadow: { marginTop: 0, shadowOpacity: 0, elevation: 0 },
   compactButton: { minHeight: 54, marginTop: 8 },
   phoneButton: { marginTop: 12 },
   shortButton: { marginTop: 10 },

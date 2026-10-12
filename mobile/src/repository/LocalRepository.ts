@@ -8,6 +8,7 @@ import {
   type CycleRule, type HolidayCalendar, type IsoDate, type PeriodRange, type YearMonth,
 } from '../domain/period';
 import { homeMessage } from '../domain/homeMessage';
+import { MAX_INPUT_AMOUNT } from '../domain/amount';
 import type {
   Budget, CalendarMonth, DailyExpenses, Expense, ExpenseInput, HolidayYear, Home,
   Settings, SettingsInput, YearlyBudgetSummary,
@@ -38,15 +39,15 @@ function validDate(date: IsoDate): IsoDate {
 }
 
 function validBudgetAmount(amount: number): number {
-  if (!Number.isSafeInteger(amount) || amount < 0 || amount > 999_999_999) {
-    throw new Error('今月使えるお金は0〜999,999,999円で入力してください');
+  if (!Number.isSafeInteger(amount) || amount < 0 || amount > MAX_INPUT_AMOUNT) {
+    throw new Error('今月使えるお金は0〜9,999,999円で入力してください');
   }
   return amount;
 }
 
 function validExpenseAmount(amount: number): number {
-  if (!Number.isSafeInteger(amount) || amount < 1 || amount > 999_999_999) {
-    throw new Error('金額は1〜999,999,999円で入力してください');
+  if (!Number.isSafeInteger(amount) || amount < 1 || amount > MAX_INPUT_AMOUNT) {
+    throw new Error('金額は1〜9,999,999円で入力してください');
   }
   return amount;
 }
@@ -237,6 +238,16 @@ export class LocalRepository {
 
   async isInitialized(): Promise<boolean> {
     return (await this.db.getFirstAsync<{ id: number }>('SELECT id FROM app_settings WHERE id = 1')) !== null;
+  }
+
+  async deleteAllUserData(): Promise<void> {
+    await transact(this.db, async tx => {
+      await tx.runAsync('DELETE FROM expenses');
+      await tx.runAsync('DELETE FROM budget_periods');
+      await tx.runAsync('DELETE FROM budget_cycle_rules');
+      await tx.runAsync('DELETE FROM app_settings');
+      await tx.runAsync('UPDATE onboarding_state SET completed = 0 WHERE id = 1');
+    });
   }
 
   async setup(budgetAmount: number, asOf: IsoDate = dateToday()): Promise<Settings> {

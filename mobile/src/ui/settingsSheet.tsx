@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Bell, CalendarRange, Check, ChevronRight, DatabaseBackup, History, RotateCcw, X } from 'lucide-react-native';
+import { ArrowLeft, Bell, CalendarRange, Check, ChevronRight, DatabaseBackup, History, RotateCcw, ShieldCheck, Trash2, X } from 'lucide-react-native';
 import Svg, { Path } from 'react-native-svg';
 import { Animated, Modal, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
 import type { Settings } from '../repository/types';
+import { privacyPolicyEffectiveDate, privacyPolicySections } from '../legal/privacyPolicy';
+import { HOLIDAY_COVERAGE_NOTICE } from '../domain/period';
 import { rangeLabel, yen } from './format';
 import { colors } from './theme';
 import { useBottomSheetMotion } from './useBottomSheetMotion';
@@ -21,15 +23,13 @@ function SettingSwitch({ value, disabled, label, onChange }: {
 
 const periodName = (labelMonth: string) => `${Number(labelMonth.slice(0, 4))}年${Number(labelMonth.slice(5, 7))}月度`;
 
-export function SettingsSheet({ settings, busy, error, dataBusy, dataMessage, onClose, onMoney, onChange, onBackup, onRestore, onRestorePrevious, onPreviewMonthlyWelcome, onPreviewInitialSetup, onPreviewOnboarding }: {
+export function SettingsSheet({ settings, busy, error, dataBusy, dataMessage, onClose, onMoney, onChange, onBackup, onRestore, onRestorePrevious, onDeleteAllData }: {
   settings: Settings; busy: boolean; error: string; onClose: () => void; onMoney: () => void;
-  dataBusy: boolean; dataMessage: string; onBackup: () => void; onRestore: () => void; onRestorePrevious: () => void;
-  onPreviewMonthlyWelcome?: () => void;
-  onPreviewInitialSetup?: () => void;
-  onPreviewOnboarding?: () => void;
+  dataBusy: boolean; dataMessage: string; onBackup: () => void; onRestore: () => void; onRestorePrevious: () => void; onDeleteAllData: () => void;
   onChange: (changes: Partial<Pick<Settings, 'monthlyNotificationEnabled' | 'startDay' | 'adjustForWeekendsAndHolidays'>>) => void;
 }) {
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [policyOpen, setPolicyOpen] = useState(false);
   const [draftDay, setDraftDay] = useState(settings.startDay);
   const wheelRef = useRef<ScrollView>(null);
   const { width, height } = useWindowDimensions();
@@ -43,7 +43,7 @@ export function SettingsSheet({ settings, busy, error, dataBusy, dataMessage, on
     const frame = requestAnimationFrame(() => wheelRef.current?.scrollTo({ y: (settings.startDay - 1) * 48, animated: false }));
     return () => cancelAnimationFrame(frame);
   }, [pickerOpen, settings.startDay]);
-  return <Modal visible transparent animationType="none" onRequestClose={() => pickerOpen ? closePicker() : close()}>
+  return <Modal visible transparent animationType="none" onRequestClose={() => pickerOpen ? closePicker() : policyOpen ? setPolicyOpen(false) : close()}>
     <View style={styles.modalFill}>
       <Animated.View pointerEvents="box-none" style={[StyleSheet.absoluteFill, backdropStyle]}>
         <BlurView intensity={25} tint="dark" style={StyleSheet.absoluteFill} />
@@ -51,17 +51,31 @@ export function SettingsSheet({ settings, busy, error, dataBusy, dataMessage, on
       </Animated.View>
       <Animated.View style={[styles.sheet, { height: Math.min(height - 28, 644) }, sheetStyle]}>
         <View style={[styles.header, compact && styles.compactHeader]}>
-          <Text style={styles.title}>設定</Text>
+          {policyOpen ? <View style={styles.policyHeaderLeft}>
+            <Pressable accessibilityRole="button" accessibilityLabel="設定に戻る"
+              onPress={() => setPolicyOpen(false)} style={styles.policyBack}>
+              <ArrowLeft size={20} color={colors.ink} />
+            </Pressable>
+            <Text accessibilityRole="header" style={styles.title}>プライバシーポリシー</Text>
+          </View> : <Text style={styles.title}>設定</Text>}
           <Pressable accessibilityRole="button" accessibilityLabel="設定を閉じる" onPress={() => close()} style={styles.close}><X size={16} color={colors.ink} /></Pressable>
         </View>
+        {policyOpen ? <ScrollView key="privacy-policy" contentContainerStyle={styles.policyContent}
+          showsVerticalScrollIndicator={false}>
+          <Text style={styles.policyDate}>制定日：{privacyPolicyEffectiveDate}</Text>
+          {privacyPolicySections.map(section => <View key={section.title} style={styles.policySection}>
+            <Text accessibilityRole="header" style={styles.policyHeading}>{section.title}</Text>
+            {section.paragraphs.map(paragraph => <Text key={paragraph} style={styles.policyParagraph}>{paragraph}</Text>)}
+          </View>)}
+        </ScrollView> : <>
         {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
-        <ScrollView contentContainerStyle={[styles.content, compact && styles.compactContent]} showsVerticalScrollIndicator={false}>
+        <ScrollView key="settings" contentContainerStyle={[styles.content, compact && styles.compactContent]} showsVerticalScrollIndicator={false}>
           <View style={styles.group}>
             <Text style={styles.groupTitle}>やりくり</Text>
             <Pressable accessibilityRole="button" onPress={() => close(onMoney)} style={[styles.cardRow, styles.singleRow]}>
               <View style={styles.iconBox}><Svg width={19} height={19} viewBox="0 0 24 24" fill="none"><Path d="m9 7.5 3 4.5m0 0 3-4.5M12 12v5.25M15 12H9m6 3H9m12-3a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" stroke={colors.blue} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" /></Svg></View>
               <View style={styles.rowCopy}><Text style={styles.rowTitle}>今月使える金額</Text></View>
-              <Text style={styles.budgetValue}>¥{yen(settings.currentBudgetAmount)}</Text>
+              <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.55} style={styles.budgetValue}>¥{yen(settings.currentBudgetAmount)}</Text>
               <ChevronRight size={18} color="#8A9697" />
             </Pressable>
           </View>
@@ -101,16 +115,18 @@ export function SettingsSheet({ settings, busy, error, dataBusy, dataMessage, on
                 <SettingSwitch value={settings.adjustForWeekendsAndHolidays} disabled={busy} label="土日祝の自動調整"
                   onChange={value => onChange({ adjustForWeekendsAndHolidays: value })} />
               </View>
+              <Text style={styles.holidayNotice}>{HOLIDAY_COVERAGE_NOTICE}</Text>
             </View>
           </View>
           <View style={styles.group}>
             <Text style={styles.groupTitle}>データ</Text>
             <View style={styles.dataCard}>
               <Pressable accessibilityRole="button" accessibilityLabel="バックアップファイルを保存"
+                accessibilityHint="暗号化されていないJSONファイルに予算・支出・メモを保存します"
                 accessibilityState={{ disabled: dataBusy }} disabled={dataBusy} onPress={onBackup}
                 style={({ pressed }) => [styles.cardRow, styles.dataRow, pressed && styles.rowPressed]}>
                 <View style={styles.iconBox}><DatabaseBackup size={19} color={colors.blue} strokeWidth={1.8} /></View>
-                <View style={styles.rowCopy}><Text style={styles.rowTitle}>バックアップ</Text><Text style={styles.rowHint}>設定・月度・予算・支出をファイルに保存</Text></View>
+                <View style={styles.rowCopy}><Text style={styles.rowTitle}>バックアップ</Text><Text style={styles.rowHint}>暗号化されていないJSONファイルに保存</Text></View>
                 <ChevronRight size={18} color="#8A9697" />
               </Pressable>
               <Pressable accessibilityRole="button" accessibilityLabel="バックアップファイルから復元"
@@ -124,35 +140,32 @@ export function SettingsSheet({ settings, busy, error, dataBusy, dataMessage, on
                 accessibilityState={{ disabled: dataBusy }} disabled={dataBusy} onPress={onRestorePrevious}
                 style={({ pressed }) => [styles.cardRow, styles.dataRow, styles.dataRowBorder, pressed && styles.rowPressed]}>
                 <View style={styles.iconBox}><History size={19} color={colors.blue} strokeWidth={1.8} /></View>
-                <View style={styles.rowCopy}><Text style={styles.rowTitle}>復元前のデータに戻す</Text><Text style={styles.rowHint}>端末内の直前の自動バックアップを使用</Text></View>
+                <View style={styles.rowCopy}><Text style={styles.rowTitle}>復元前のデータに戻す</Text><Text style={styles.rowHint}>端末内の直前の自動バックアップを使用（最大5件）</Text></View>
                 <ChevronRight size={18} color="#8A9697" />
+              </Pressable>
+              <Pressable accessibilityRole="button" accessibilityLabel="全データを削除"
+                accessibilityHint="確認後、端末内の予算、支出、設定、自動バックアップを削除します"
+                accessibilityState={{ disabled: dataBusy }} disabled={dataBusy} onPress={onDeleteAllData}
+                style={({ pressed }) => [styles.cardRow, styles.dataRow, styles.dataRowBorder, styles.deleteRow, pressed && styles.deleteRowPressed]}>
+                <View style={[styles.iconBox, styles.deleteIconBox]}><Trash2 size={19} color="#F30100" strokeWidth={1.8} /></View>
+                <View style={styles.rowCopy}><Text style={[styles.rowTitle, styles.deleteTitle]}>全データを削除</Text><Text style={[styles.rowHint, styles.deleteHint]}>端末内のデータを消去</Text></View>
+                <ChevronRight size={18} color="#F30100" />
               </Pressable>
             </View>
             {dataBusy ? <Text style={styles.dataMessage}>処理中です…</Text> : null}
             {!dataBusy && dataMessage ? <Text accessibilityRole="alert" style={styles.dataMessage}>{dataMessage}</Text> : null}
           </View>
-          {__DEV__ && onPreviewMonthlyWelcome && <View style={styles.group}>
-            <Text style={styles.groupTitle}>開発用</Text>
-            {onPreviewOnboarding && <Pressable accessibilityRole="button" accessibilityLabel="オンボーディングをプレビュー"
-              onPress={() => close(onPreviewOnboarding)} style={[styles.cardRow, styles.singleRow, styles.previewDevRow]}>
-              <View style={styles.iconBox}><DatabaseBackup size={19} color={colors.blue} strokeWidth={1.8} /></View>
-              <View style={styles.rowCopy}><Text style={styles.rowTitle}>オンボーディングをプレビュー</Text><Text style={styles.rowHint}>端末のデータを変更せずに表示</Text></View>
-              <ChevronRight size={18} color="#8A9697" />
-            </Pressable>}
-            {onPreviewInitialSetup && <Pressable accessibilityRole="button" accessibilityLabel="初回金額設定画面をプレビュー"
-              onPress={() => close(onPreviewInitialSetup)} style={[styles.cardRow, styles.singleRow, styles.previewDevRow]}>
-              <View style={styles.iconBox}><DatabaseBackup size={19} color={colors.blue} strokeWidth={1.8} /></View>
-              <View style={styles.rowCopy}><Text style={styles.rowTitle}>初回金額設定画面をプレビュー</Text><Text style={styles.rowHint}>端末のデータを変更せずに表示</Text></View>
-              <ChevronRight size={18} color="#8A9697" />
-            </Pressable>}
-            <Pressable accessibilityRole="button" accessibilityLabel="新しい月度画面をプレビュー"
-              onPress={() => close(onPreviewMonthlyWelcome)} style={[styles.cardRow, styles.singleRow]}>
-              <View style={styles.iconBox}><CalendarRange size={19} color={colors.blue} strokeWidth={1.8} /></View>
-              <View style={styles.rowCopy}><Text style={styles.rowTitle}>新しい月度画面をプレビュー</Text><Text style={styles.rowHint}>端末のデータを変更せずに表示</Text></View>
+          <View style={styles.group}>
+            <Text style={styles.groupTitle}>アプリについて</Text>
+            <Pressable accessibilityRole="button" accessibilityLabel="プライバシーポリシーを読む"
+              onPress={() => setPolicyOpen(true)} style={({ pressed }) => [styles.cardRow, styles.singleRow, pressed && styles.rowPressed]}>
+              <View style={styles.iconBox}><ShieldCheck size={19} color={colors.blue} strokeWidth={1.8} /></View>
+              <View style={styles.rowCopy}><Text style={styles.rowTitle}>プライバシーポリシー</Text></View>
               <ChevronRight size={18} color="#8A9697" />
             </Pressable>
-          </View>}
+          </View>
         </ScrollView>
+        </>}
       </Animated.View>
       {pickerOpen && <View style={styles.pickerOverlay}>
         <Animated.View pointerEvents="box-none" style={[StyleSheet.absoluteFill, pickerBackdropStyle]}>
@@ -199,6 +212,13 @@ const styles = StyleSheet.create({
   header: { height: 74, paddingHorizontal: 24, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   compactHeader: { paddingHorizontal: 18 },
   title: { color: colors.ink, fontSize: 18, fontWeight: '700' },
+  policyHeaderLeft: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 },
+  policyBack: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  policyContent: { paddingHorizontal: 24, paddingBottom: 40 },
+  policyDate: { color: '#607173', fontSize: 12, lineHeight: 20 },
+  policySection: { marginTop: 23, gap: 10 },
+  policyHeading: { color: colors.ink, fontSize: 15, fontWeight: '700', lineHeight: 23 },
+  policyParagraph: { color: colors.ink, fontSize: 13, lineHeight: 22 },
   close: { width: 30, height: 30, marginRight: 8, alignItems: 'center', justifyContent: 'center', borderRadius: 15, backgroundColor: '#E7ECEC' },
   content: { paddingHorizontal: 20, paddingBottom: 34 },
   compactContent: { paddingHorizontal: 14 },
@@ -207,13 +227,18 @@ const styles = StyleSheet.create({
   groupTitle: { marginLeft: 5, marginBottom: 9, color: '#00000094', fontSize: 11, fontWeight: '700', letterSpacing: 0.5 },
   cardRow: { minHeight: 72, paddingHorizontal: 14, paddingVertical: 13, flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: colors.white },
   singleRow: { borderRadius: 20 },
-  previewDevRow: { marginBottom: 8 },
   iconBox: { width: 38, height: 38, borderRadius: 13, alignItems: 'center', justifyContent: 'center', backgroundColor: '#E8F4FF' },
+  deleteRow: { backgroundColor: colors.white, borderTopColor: colors.line },
+  deleteRowPressed: { backgroundColor: '#F7F9FA' },
+  deleteIconBox: { backgroundColor: '#F3010014' },
+  deleteTitle: { color: '#F30100' },
+  deleteHint: { color: '#F30100B3' },
   iconSpacer: { width: 38 },
   rowCopy: { flex: 1, minWidth: 0, gap: 4 },
   rowTitle: { color: colors.ink, fontSize: 13, fontWeight: '700' },
   rowHint: { color: '#0000007A', fontSize: 9 },
-  budgetValue: { fontFamily: 'ui-rounded', color: colors.ink, fontSize: 15, fontWeight: '600' },
+  holidayNotice: { marginHorizontal: 14, marginBottom: 16, color: '#637073', fontSize: 11, lineHeight: 18 },
+  budgetValue: { fontFamily: 'ui-rounded', color: colors.ink, fontSize: 15, fontWeight: '600', maxWidth: '38%', flexShrink: 1 },
   switchTrack: { width: 50, height: 30, borderRadius: 15, padding: 3, justifyContent: 'center', backgroundColor: '#C8D0D1' },
   switchOn: { backgroundColor: colors.blue },
   switchThumb: { width: 24, height: 24, borderRadius: 12, backgroundColor: colors.white, shadowColor: '#183638',

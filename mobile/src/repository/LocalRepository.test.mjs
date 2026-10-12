@@ -22,8 +22,63 @@ require.extensions['.ts'] = (module, filename) => {
 };
 
 const { migrations } = require('../database/migrations.ts');
-const { seedBundledHolidays } = require('../database/bundledHolidays.ts');
+const { initializeDatabase, initializeDatabaseForStartup } = require('../database/initializeDatabase.ts');
+const { seedBundledHolidays, bundledHolidays } = require('../database/bundledHolidays.ts');
+const { BUNDLED_HOLIDAY_YEARS, HOLIDAY_COVERAGE_NOTICE } = require('../domain/period.ts');
+const { calculatePeriod } = require('../domain/period.ts');
 const { LocalRepository } = require('./LocalRepository.ts');
+
+test('画面の祝日対応年は同梱データと一致する', () => {
+  assert.deepEqual(Object.keys(bundledHolidays).map(Number), [...BUNDLED_HOLIDAY_YEARS]);
+  assert.match(HOLIDAY_COVERAGE_NOTICE, /2025〜2027年/);
+  assert.match(HOLIDAY_COVERAGE_NOTICE, /2028年以降.*土日のみ/);
+});
+
+test('2026・2027年の同梱祝日は内閣府公表済みの35日と一致し、振替休日も調整する', () => {
+  // 内閣府 https://www8.cao.go.jp/chosei/shukujitsu/gaiyou.html （2026-10-12照合）
+  const official = {
+    2026: ['01-01', '01-12', '02-11', '02-23', '03-20', '04-29', '05-03', '05-04', '05-05',
+      '05-06', '07-20', '08-11', '09-21', '09-22', '09-23', '10-12', '11-03', '11-23'],
+    2027: ['01-01', '01-11', '02-11', '02-23', '03-21', '03-22', '04-29', '05-03', '05-04',
+      '05-05', '07-19', '08-11', '09-20', '09-23', '10-11', '11-03', '11-23'],
+  };
+  for (const [year, dates] of Object.entries(official)) {
+    assert.deepEqual(bundledHolidays[year].map(([date]) => date), dates.map(date => `${year}-${date}`));
+  }
+  const calendar = { coveredYears: new Set(BUNDLED_HOLIDAY_YEARS),
+    holidayDates: new Set(Object.values(bundledHolidays).flat().map(([date]) => date)) };
+  const rule = { startDay: 22, adjustForWeekendsAndHolidays: true };
+  assert.equal(calculatePeriod('2027-03', rule, rule, calendar).startDate, '2027-03-19');
+  const newYear = { ...rule, startDay: 1 };
+  assert.equal(calculatePeriod('2027-12', newYear, newYear, calendar).endDate, '2027-12-30');
+  assert.equal(calculatePeriod('2028-01', newYear, newYear, calendar).startDate, '2027-12-31');
+});
+
+test('起動時の初期化失敗では接続を閉じ、保存データを削除せず再試行できる', async () => {
+  const db = new SqliteAdapter();
+  let closed = 0;
+  db.closeAsync = async () => { closed += 1; };
+  try {
+    await new LocalRepository(db).setup(12_345, '2026-10-12');
+    const before = JSON.parse(await new LocalRepository(db).createBackupJson());
+    db.native.exec('PRAGMA user_version = 999');
+    await assert.rejects(initializeDatabaseForStartup(db), /より新しい/);
+    assert.equal(closed, 1);
+    assert.deepEqual(JSON.parse(await new LocalRepository(db).createBackupJson()).data, before.data);
+    db.native.exec(`PRAGMA user_version = ${migrations.at(-1).version}`);
+    await initializeDatabaseForStartup(db);
+    assert.equal(closed, 1);
+    assert.deepEqual(JSON.parse(await new LocalRepository(db).createBackupJson()).data, before.data);
+  } finally { db.close(); }
+});
+
+test('起動時の接続終了失敗でも初期化の原因を保持する', async () => {
+  const cause = new Error('DB破損');
+  await assert.rejects(initializeDatabaseForStartup({
+    execAsync: async () => { throw cause; },
+    closeAsync: async () => { throw new Error('接続終了失敗'); },
+  }), error => error === cause);
+});
 
 test('通知を9時固定にし、月度開始日変更に沿った今後の通知日を返す', async () => {
   const db = new SqliteAdapter();
@@ -82,20 +137,28 @@ test('0円を設定済み予算として保存し、未設定の0円と区別す
 });
 
 class SqliteAdapter {
-  constructor() {
+  constructor(migrate = true) {
     this.native = new DatabaseSync(':memory:');
     this.native.exec('PRAGMA foreign_keys = ON');
+    if (!migrate) return;
+    let currentVersion = 0;
     for (const migration of migrations) {
+      if (migration.version <= currentVersion) continue;
+      assert.equal(migration.version, currentVersion + 1);
       this.native.exec('BEGIN IMMEDIATE');
       try {
         this.native.exec(migration.sql);
+        this.native.exec(`PRAGMA user_version = ${migration.version}`);
         this.native.exec('COMMIT');
+        currentVersion = migration.version;
       } catch (error) {
         this.native.exec('ROLLBACK');
         throw error;
       }
     }
   }
+
+  async execAsync(sql) { this.native.exec(sql); }
 
   async getFirstAsync(sql, params = []) {
     return this.native.prepare(sql).get(...params) ?? null;
@@ -122,6 +185,39 @@ class SqliteAdapter {
 
   close() { this.native.close(); }
 }
+
+test('予算と支出の入力は7桁まで保存でき、8桁を拒否する', async () => {
+  const db = new SqliteAdapter();
+  try {
+    const repo = new LocalRepository(db);
+    await assert.rejects(repo.setup(10_000_000, '2026-10-11'), /9,999,999/);
+    await repo.setup(9_999_999, '2026-10-11');
+    assert.equal((await repo.getHome('2026-10-11')).budgetAmount, 9_999_999);
+    await assert.rejects(repo.updateCurrentBudget(10_000_000, '2026-10-11'), /9,999,999/);
+    const expense = await repo.createExpense({ spentOn: '2026-10-11', amount: 9_999_999, memo: null });
+    assert.equal(expense.amount, 9_999_999);
+    await assert.rejects(repo.createExpense({ spentOn: '2026-10-11', amount: 10_000_000, memo: null }), /9,999,999/);
+    await assert.rejects(repo.updateExpense(expense.id, { spentOn: '2026-10-11', amount: 10_000_000, memo: null }), /9,999,999/);
+  } finally { db.close(); }
+});
+
+test('全データ削除で予算・支出・設定と説明状態を初期化し、再設定できる', async () => {
+  const db = new SqliteAdapter();
+  try {
+    const repo = new LocalRepository(db);
+    await repo.completeOnboarding();
+    await repo.setup(19_000, '2026-10-11');
+    await repo.createExpense({ spentOn: '2026-10-11', amount: 1_000, memo: 'テスト' });
+    await repo.deleteAllUserData();
+    assert.equal(await repo.isInitialized(), false);
+    assert.equal(await repo.isOnboardingComplete(), false);
+    for (const table of ['expenses', 'budget_periods', 'budget_cycle_rules', 'app_settings']) {
+      assert.equal((await db.getFirstAsync(`SELECT COUNT(*) AS count FROM ${table}`)).count, 0);
+    }
+    await repo.setup(5_000, '2026-10-11');
+    assert.equal((await repo.getHome('2026-10-11')).remainingAmount, 5_000);
+  } finally { db.close(); }
+});
 
 test('説明完了は初期設定と独立して保存され、復元後も維持される', async () => {
   const db = new SqliteAdapter();
@@ -473,6 +569,53 @@ test('December 2026 and later calendar months are provisioned by label after cha
   } finally { db.close(); }
 });
 
+test('新規DBは移行v1〜v5を一度ずつ適用し、再起動でもデータを保持する', async () => {
+  assert.deepEqual(migrations.map(migration => migration.version), [1, 2, 3, 4, 5]);
+  const db = new SqliteAdapter(false);
+  try {
+    await initializeDatabase(db);
+    assert.equal((await db.getFirstAsync('PRAGMA user_version')).user_version, 5);
+    const repo = new LocalRepository(db);
+    await repo.setup(30_000, '2026-10-06');
+    await repo.createExpense({ spentOn: '2026-10-06', amount: 1_200, memo: '検証用' });
+    const before = await db.getFirstAsync('SELECT COUNT(*) AS count, SUM(amount) AS amount FROM expenses');
+    await initializeDatabase(db);
+    assert.deepEqual(await db.getFirstAsync('SELECT COUNT(*) AS count, SUM(amount) AS amount FROM expenses'), before);
+    assert.equal((await db.getFirstAsync('PRAGMA user_version')).user_version, 5);
+    assert.equal((await db.getAllAsync('PRAGMA foreign_key_check')).length, 0);
+  } finally { db.close(); }
+});
+
+test('旧v1 DBの更新は予算・支出・参照関係を保持し、v2を一度だけ適用する', async () => {
+  const db = new SqliteAdapter(false);
+  try {
+    await db.execAsync(migrations[0].sql);
+    await db.execAsync('PRAGMA user_version = 1');
+    const now = '2026-10-06T00:00:00.000Z';
+    const ruleId = randomUUID();
+    const periodId = randomUUID();
+    const expenseId = randomUUID();
+    await db.runAsync('INSERT INTO app_settings (id, created_at, updated_at) VALUES (1, ?, ?)', [now, now]);
+    await db.runAsync('INSERT INTO budget_cycle_rules (id, start_day, effective_from, created_at, updated_at) VALUES (?, 1, ?, ?, ?)',
+      [ruleId, '2026-10-01', now, now]);
+    await db.runAsync('INSERT INTO budget_periods (id, cycle_rule_id, label_month, start_date, nominal_end_date, end_date, budget_amount, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [periodId, ruleId, '2026-10-01', '2026-10-01', '2026-10-31', '2026-10-31', 30_000, now, now]);
+    await db.runAsync('INSERT INTO expenses (id, budget_period_id, spent_on, amount, memo, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [expenseId, periodId, '2026-10-06', 1_200, '検証用', now, now]);
+    const before = await db.getFirstAsync('SELECT COUNT(*) AS count, SUM(amount) AS amount FROM expenses');
+
+    await initializeDatabase(db);
+
+    assert.equal((await db.getFirstAsync('PRAGMA user_version')).user_version, 5);
+    assert.deepEqual(await db.getFirstAsync('SELECT COUNT(*) AS count, SUM(amount) AS amount FROM expenses'), before);
+    assert.deepEqual({ ...await db.getFirstAsync('SELECT budget_amount, budget_configured FROM budget_periods WHERE id = ?', [periodId]) },
+      { budget_amount: 30_000, budget_configured: 1 });
+    assert.deepEqual({ ...await db.getFirstAsync('SELECT budget_period_id, memo FROM expenses WHERE id = ?', [expenseId]) },
+      { budget_period_id: periodId, memo: '検証用' });
+    assert.equal((await db.getAllAsync('PRAGMA foreign_key_check')).length, 0);
+  } finally { db.close(); }
+});
+
 test('V1 migration clears inherited budgets but preserves the setup and edited months', () => {
   const db = new DatabaseSync(':memory:');
   try {
@@ -592,4 +735,45 @@ test('空白メモは既存DBの値を変えずに復元する', async () => {
     await repo.restoreBackupJson(json);
     assert.equal((await repo.getDailyExpenses('2026-10-06')).expenses[0].memo, '');
   } finally { db.close(); }
+});
+
+test('60か月・支出1万件の集計とバックアップ復元で件数・金額を維持する', async () => {
+  const sourceDb = new SqliteAdapter();
+  const destinationDb = new SqliteAdapter();
+  try {
+    const source = new LocalRepository(sourceDb);
+    const destination = new LocalRepository(destinationDb);
+    await source.setup(100_000, '2026-01-15');
+    for (let year = 2026; year <= 2030; year += 1) {
+      for (let month = 1; month <= 12; month += 1) {
+        await source.getMonthlyCalendar(`${year}-${String(month).padStart(2, '0')}`);
+      }
+    }
+    const periods = sourceDb.native.prepare('SELECT id, start_date FROM budget_periods ORDER BY label_month').all();
+    assert.equal(periods.length, 60);
+    const insert = sourceDb.native.prepare(`INSERT INTO expenses
+      (id, budget_period_id, spent_on, amount, memo, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?)`);
+    const stamp = '2026-01-15T00:00:00.000Z';
+    sourceDb.native.exec('BEGIN IMMEDIATE');
+    try {
+      for (let index = 0; index < 10_000; index += 1) {
+        const period = periods[index % periods.length];
+        insert.run(randomUUID(), period.id, period.start_date, 1, index % 2 ? null : 'テスト', stamp, stamp);
+      }
+      sourceDb.native.exec('COMMIT');
+    } catch (error) {
+      sourceDb.native.exec('ROLLBACK');
+      throw error;
+    }
+    const json = await source.createBackupJson();
+    assert.equal(JSON.parse(json).data.expenses.length, 10_000);
+    await destination.restoreBackupJson(json);
+    const totals = destinationDb.native.prepare('SELECT COUNT(*) AS count, SUM(amount) AS total FROM expenses').get();
+    assert.equal(totals.count, 10_000);
+    assert.equal(totals.total, 10_000);
+    assert.equal(destinationDb.native.prepare('SELECT COUNT(*) AS count FROM budget_periods').get().count, 60);
+    assert.equal(destinationDb.native.prepare('PRAGMA foreign_key_check').all().length, 0);
+    assert.equal((await destination.getMonthlyCalendar('2026-01')).dailyTotals[0].totalAmount, 167);
+  } finally { sourceDb.close(); destinationDb.close(); }
 });
