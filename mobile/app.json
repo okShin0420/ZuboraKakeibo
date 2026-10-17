@@ -8,7 +8,11 @@
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": false,
-      "icon": "./assets/apple-icon-ios-fullbleed.png"
+      "bundleIdentifier": "com.okshin0420.zuborakakeibo",
+      "icon": "./assets/apple-icon-ios-fullbleed.png",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -38,6 +42,12 @@
           }
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "eeee481a-3e33-4047-b0b8-a3e22365d7f1"
+      }
+    },
+    "owner": "okshin0420"
   }
 }
