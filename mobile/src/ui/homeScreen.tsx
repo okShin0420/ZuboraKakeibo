@@ -1,5 +1,5 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { Dimensions, Platform, ScrollView, StyleSheet, Text, useWindowDimensions, View, type LayoutChangeEvent } from 'react-native';
 import Svg, { Defs, Ellipse, Path, RadialGradient, Stop } from 'react-native-svg';
 
@@ -19,22 +19,20 @@ export function HomeScreen({ home, onSettings, onExpense }: {
   const phoneHeight = !compact && height <= 900;
   const shortPhone = phoneHeight && height <= 830;
   const dogSize = compact ? 155 : shortPhone ? 186 : phoneHeight ? 212 : 237;
-  const [balanceSize, setBalanceSize] = useState<{ width: number; height: number } | null>(null);
-  const scrollRef = useRef<ScrollView>(null);
+  const [balanceSize, setBalanceSize] = useState({
+    width: width - (compact ? 32 : 40),
+    height: compact ? 168 : phoneHeight ? 190 : 210,
+  });
   const onBalanceLayout = (event: LayoutChangeEvent) => {
     const { width: cardWidth, height: cardHeight } = event.nativeEvent.layout;
     if (cardWidth <= 0 || cardHeight <= 0) return;
-    setBalanceSize(current => current?.width === cardWidth && current.height === cardHeight
+    setBalanceSize(current => current.width === cardWidth && current.height === cardHeight
       ? current : { width: cardWidth, height: cardHeight });
   };
-  useEffect(() => {
-    const timer = setTimeout(() => scrollRef.current?.scrollTo({ y: 0, animated: false }), 100);
-    return () => clearTimeout(timer);
-  }, []);
   return <View style={styles.screen}>
     <LinearGradient pointerEvents="none" colors={['#FFFFFF00', '#FFFFFF22', '#FFFFFFCC', '#FFFFFF']}
       locations={[0, 0.35, 0.68, 0.88]} style={styles.fade} />
-    <ScrollView ref={scrollRef} scrollEnabled={false} bounces={false} overScrollMode="never" contentContainerStyle={[styles.content, phoneHeight && styles.phoneContent, shortPhone && styles.shortContent, compact && styles.compactContent]} showsVerticalScrollIndicator={false}>
+    <ScrollView scrollEnabled={false} bounces={false} overScrollMode="never" contentContainerStyle={[styles.content, phoneHeight && styles.phoneContent, shortPhone && styles.shortContent, compact && styles.compactContent]} showsVerticalScrollIndicator={false}>
       <View style={[styles.header, phoneHeight && styles.phoneHeader, shortPhone && styles.shortHeader, compact && styles.compactHeader]}>
         <Text style={styles.month}><Text style={styles.monthNumber}>{Number(home.labelMonth.slice(5, 7))}</Text>月</Text>
       </View>
@@ -58,9 +56,8 @@ export function HomeScreen({ home, onSettings, onExpense }: {
         </View>
       </View>
       <View onLayout={onBalanceLayout} style={[styles.balance, phoneHeight && styles.phoneBalance,
-        shortPhone && styles.shortBalance, compact && styles.compactBalance,
-        balanceSize && styles.measuredBalance]}>
-        {balanceSize && <Svg pointerEvents="none" style={styles.cardShape} width={balanceSize.width}
+        shortPhone && styles.shortBalance, compact && styles.compactBalance]}>
+        <Svg pointerEvents="none" style={styles.cardShape} width={balanceSize.width}
           height={balanceSize.height} viewBox={`0 0 ${balanceSize.width} ${balanceSize.height}`}>
           <Path d={`M28 13 C${balanceSize.width * 0.3} -4 ${balanceSize.width * 0.7} -4 ${balanceSize.width - 28} 13
             C${balanceSize.width - 10} 15 ${balanceSize.width} 25 ${balanceSize.width} 41
@@ -68,7 +65,7 @@ export function HomeScreen({ home, onSettings, onExpense }: {
             Q${balanceSize.width} ${balanceSize.height} ${balanceSize.width - 26} ${balanceSize.height}
             L26 ${balanceSize.height} Q0 ${balanceSize.height} 0 ${balanceSize.height - 26}
             L0 41 C0 25 10 15 28 13 Z`} fill="#FFFFFF" />
-        </Svg>}
+        </Svg>
         <Text style={styles.balanceLabel}>今月あと使えるお金</Text>
         <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.42}
           style={[styles.amount, compact && styles.compactAmount]}><Text style={styles.currency}>¥</Text>{yen(home.remainingAmount)}</Text>
@@ -107,7 +104,7 @@ const styles = StyleSheet.create({
   phoneHeader: { marginBottom: 14 },
   shortHeader: { marginBottom: 8 },
   compactHeader: { marginBottom: 5 },
-  month: { fontFamily: 'ui-rounded', fontSize: 30, lineHeight: 36, color: 'rgba(255, 255, 255, 0.62)', fontWeight: '600', textAlign: 'center' },
+  month: { fontFamily: 'ui-rounded', fontSize: 30, lineHeight: 36, color: colors.white, fontWeight: '600', textAlign: 'center' },
   monthNumber: { fontFamily: 'ui-rounded', fontWeight: '600' },
   settingsButton: { position: 'absolute', right: 20, top: 8 },
   compactSettingsButton: { right: 16 },
@@ -126,11 +123,10 @@ const styles = StyleSheet.create({
   speechText: { fontSize: 12, fontWeight: '600', color: colors.ink },
   compactSpeechText: { fontSize: 11 },
   cardShape: { position: 'absolute', inset: 0 },
-  balance: { backgroundColor: colors.white, alignItems: 'center', marginTop: -24,
+  balance: { backgroundColor: 'transparent', alignItems: 'center', marginTop: -24,
     paddingTop: 56, paddingBottom: 28, borderRadius: 26, zIndex: 1,
     shadowColor: '#175B98', shadowOpacity: 0.1,
     shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 3 },
-  measuredBalance: { backgroundColor: 'transparent' },
   phoneBalance: { marginTop: -33, paddingTop: 49, paddingBottom: 18 },
   shortBalance: { paddingTop: 43, paddingBottom: 20 },
   compactBalance: { paddingTop: 36, paddingBottom: 20 },

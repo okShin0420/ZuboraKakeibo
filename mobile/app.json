@@ -4,12 +4,12 @@
     "slug": "zubora-kakeibo",
     "version": "0.1.0",
     "orientation": "portrait",
-    "icon": "./assets/apple-icon-ios-fullbleed.png",
+    "icon": "./assets/apple-icon-ios-user-fullbleed.png",
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.okshin0420.zuborakakeibo",
-      "icon": "./assets/apple-icon-ios-fullbleed.png",
+      "icon": "./assets/apple-icon-ios-user-fullbleed.png",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
