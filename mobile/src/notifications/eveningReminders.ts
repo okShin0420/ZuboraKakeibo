@@ -95,6 +95,27 @@ export function cancelEveningReminders(): Promise<void> {
   return next;
 }
 
+export async function scheduleEveningReminderTest(): Promise<void> {
+  if (Platform.OS === 'web') throw new Error('通知テストはiPhoneまたはAndroid端末で行ってください');
+  let permission = await Notifications.getPermissionsAsync();
+  if (!permission.granted && permission.canAskAgain) permission = await Notifications.requestPermissionsAsync();
+  if (!permission.granted) throw new Error('端末の設定で通知を許可してください');
+  if (Platform.OS === 'android') {
+    await Notifications.setNotificationChannelAsync(CHANNEL_ID, {
+      name: '夜のやさしい確認', importance: Notifications.AndroidImportance.DEFAULT,
+    });
+  }
+  await Notifications.scheduleNotificationAsync({
+    content: {
+      title: '今日はどうだった？',
+      body: eveningReminderBodies[2],
+      data: { [TEST_KEY]: true },
+    },
+    trigger: { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds: 5,
+      ...(Platform.OS === 'android' ? { channelId: CHANNEL_ID } : {}) },
+  });
+}
+
 export function isEveningReminderNotification(data: Record<string, unknown>): boolean {
   return data[MANAGED_KEY] === true || data[TEST_KEY] === true;
 }

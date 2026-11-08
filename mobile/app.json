@@ -5,12 +5,12 @@
     "scheme": "zuborakakeibo",
     "version": "1.1.0",
     "orientation": "portrait",
-    "icon": "./assets/app-icon-dog-gradient.png",
+    "icon": "./assets/app-icon-dog-full-gradient.png",
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.okshin0420.zuborakakeibo",
-      "icon": "./assets/app-icon-dog-gradient.png",
+      "icon": "./assets/app-icon-dog-full-gradient.png",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
