@@ -24,7 +24,7 @@ import { todayInTokyo } from './src/ui/format';
 import { homeSkyImage, preloadOnboardingFirstImage, preloadVisualAssets } from './src/ui/imageAssets';
 import { CalendarSkyBackground, GraphSkyBackground } from './src/ui/skyBackground';
 import { cancelMonthlyNotifications, syncMonthlyNotifications } from './src/notifications/monthlyNotifications';
-import { cancelEveningReminders, isEveningReminderNotification, scheduleEveningReminderTest, syncEveningReminders } from './src/notifications/eveningReminders';
+import { cancelEveningReminders, isEveningReminderNotification, syncEveningReminders } from './src/notifications/eveningReminders';
 
 const messageOf = (error: unknown) => error instanceof Error ? error.message : '処理できませんでした。もう一度お試しください。';
 const SPLASH_MINIMUM_MS = 500;
@@ -58,8 +58,6 @@ function MobileApp() {
   const [dataBusy, setDataBusy] = useState(false);
   const [settingsError, setSettingsError] = useState('');
   const [notificationWarning, setNotificationWarning] = useState('');
-  const [notificationTestBusy, setNotificationTestBusy] = useState(false);
-  const [notificationTestMessage, setNotificationTestMessage] = useState('');
   const [dataMessage, setDataMessage] = useState('');
   const [error, setError] = useState('');
   const [revision, setRevision] = useState(0);
@@ -199,20 +197,6 @@ function MobileApp() {
       await refresh();
     } catch (cause) { setSettingsError(messageOf(cause)); }
     finally { setSettingsBusy(false); }
-  };
-
-  const testNotification = async () => {
-    if (notificationTestBusy) return;
-    setNotificationTestBusy(true);
-    setNotificationTestMessage('');
-    try {
-      await scheduleEveningReminderTest();
-      setNotificationTestMessage('5秒後にテスト通知を送ります。');
-    } catch (cause) {
-      setNotificationTestMessage(messageOf(cause));
-    } finally {
-      setNotificationTestBusy(false);
-    }
   };
 
   const saveMoney = async (amount: number) => {
@@ -427,8 +411,7 @@ function MobileApp() {
       <TabBar active={tab} onChange={setTab} />
       {settingsOpen && !moneyOpen && <SettingsSheet settings={settings} busy={settingsBusy} error={settingsError || notificationWarning}
         onClose={() => setSettingsOpen(false)} onMoney={() => { setSettingsOpen(false); setMoneyOpen(true); }}
-        onChange={changes => void saveSettings(changes)} onTestNotification={() => void testNotification()}
-        notificationTestBusy={notificationTestBusy} notificationTestMessage={notificationTestMessage}
+        onChange={changes => void saveSettings(changes)}
         dataBusy={dataBusy} dataMessage={dataMessage}
         onBackup={confirmBackup} onRestore={confirmRestore} onRestorePrevious={confirmRestorePrevious}
         onDeleteAllData={confirmDeleteAllData} />}
