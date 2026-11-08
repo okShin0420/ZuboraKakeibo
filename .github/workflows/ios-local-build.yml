@@ -1,0 +1,56 @@
+name: Build iOS IPA locally
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-local-build
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: macos-26
+    timeout-minutes: 120
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+
+      - name: Install dependencies
+        working-directory: mobile
+        run: npm ci
+
+      - name: Show Xcode version
+        run: xcodebuild -version
+
+      - name: Build IPA on this Mac
+        working-directory: mobile
+        run: |
+          mkdir -p build
+          npx --yes eas-cli@26.0.0 build \
+            --platform ios \
+            --profile production \
+            --local \
+            --non-interactive \
+            --output build/app.ipa
+          test -s build/app.ipa
+
+      - name: Save IPA temporarily
+        uses: actions/upload-artifact@v4
+        with:
+          name: zubora-ios-ipa
+          path: mobile/build/app.ipa
+          if-no-files-found: error
+          retention-days: 1
