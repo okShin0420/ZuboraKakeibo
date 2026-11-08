@@ -3,30 +3,34 @@
   "version": "0.1.0",
   "main": "index.ts",
   "dependencies": {
-    "@expo/metro-runtime": "~57.0.16",
-    "expo": "~57.0.26",
-    "expo-blur": "~57.0.3",
-    "expo-crypto": "~57.0.3",
-    "expo-document-picker": "~57.0.3",
-    "expo-file-system": "~57.0.7",
-    "expo-font": "~57.0.4",
-    "expo-image": "~57.0.5",
-    "expo-linear-gradient": "~57.0.2",
-    "expo-notifications": "~57.0.22",
-    "expo-sharing": "~57.0.22",
-    "expo-splash-screen": "~57.0.9",
-    "expo-sqlite": "~57.0.3",
-    "expo-status-bar": "~57.0.1",
+    "@expo/metro-runtime": "~58.0.15",
+    "@expo/ui": "~58.0.25",
+    "expo": "58.0.0",
+    "expo-asset": "~58.0.19",
+    "expo-blur": "~58.0.5",
+    "expo-crypto": "~58.0.7",
+    "expo-document-picker": "~58.0.4",
+    "expo-file-system": "~58.0.13",
+    "expo-font": "~58.0.11",
+    "expo-image": "~58.0.18",
+    "expo-linear-gradient": "~58.0.3",
+    "expo-localization": "~58.0.5",
+    "expo-notifications": "~58.1.7",
+    "expo-sharing": "~58.0.21",
+    "expo-splash-screen": "~58.0.12",
+    "expo-sqlite": "~58.0.14",
+    "expo-status-bar": "~58.0.4",
+    "expo-widgets": "~58.0.25",
     "lucide-react-native": "^1.52.0",
-    "react": "19.2.3",
-    "react-dom": "19.2.3",
-    "react-native": "0.86.3",
-    "react-native-svg": "15.15.4",
-    "react-native-web": "^0.21.2"
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "react-native": "0.88.1",
+    "react-native-svg": "15.16.0",
+    "react-native-web": "^0.21.4"
   },
   "devDependencies": {
     "@expo/ngrok": "^4.1.0",
-    "@types/react": "~19.2.2",
+    "@types/react": "~19.3.0",
     "typescript": "~6.0.3"
   },
   "scripts": {
@@ -34,7 +38,7 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "test": "node --experimental-strip-types --experimental-sqlite --test src/domain/homeMessage.test.mjs src/domain/period.test.mjs src/repository/LocalRepository.test.mjs src/notifications/monthlyNotifications.test.mjs src/backup/backupFiles.test.mjs src/legal/privacyPolicy.test.mjs src/startup/StartupBoundary.test.mjs"
+    "test": "node --experimental-strip-types --experimental-sqlite --test src/domain/homeMessage.test.mjs src/domain/period.test.mjs src/repository/LocalRepository.test.mjs src/notifications/monthlyNotifications.test.mjs src/notifications/eveningReminders.test.mjs src/backup/backupFiles.test.mjs src/legal/privacyPolicy.test.mjs src/startup/StartupBoundary.test.mjs src/startup/startupDiagnostics.test.mjs"
   },
   "private": true
 }

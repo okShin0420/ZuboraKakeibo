@@ -2,6 +2,7 @@ import { Component, Fragment, type ReactNode } from 'react';
 import { Pressable, SafeAreaView, ScrollView, StyleSheet, Text } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
+import { recordStartupError } from './startupDiagnostics';
 
 // SQLiteProviderは接続・初期化の非同期エラーをrender時に再送出する。
 // フォント読み込みも含め、Providerの外側で受け止める。
@@ -10,7 +11,8 @@ export class StartupBoundary extends Component<{ children: ReactNode }, { failed
 
   static getDerivedStateFromError() { return { failed: true }; }
 
-  componentDidCatch() {
+  componentDidCatch(error: Error) {
+    recordStartupError('フォント・DB・画面の初期化', error);
     void SplashScreen.hideAsync().catch(() => {});
   }
 

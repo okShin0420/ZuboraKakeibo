@@ -6,7 +6,7 @@ import { privacyPolicyMarkdown } from './privacyPolicy.ts';
 
 test('公開用Markdownとアプリ内のプライバシーポリシー本文が一致する', () => {
   const document = readFileSync(new URL('../../../docs/PRIVACY_POLICY.md', import.meta.url), 'utf8');
-  assert.equal(document, privacyPolicyMarkdown());
+  assert.equal(document.replace(/\r\n/g, '\n'), privacyPolicyMarkdown());
 });
 
 test('端末内保存とバックアップの重要事項を明記する', () => {

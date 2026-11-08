@@ -161,4 +161,11 @@ CREATE TABLE onboarding_state (
 INSERT INTO onboarding_state (id, completed) VALUES (1, 0);
 `,
   },
+  {
+    version: 6,
+    sql: `
+-- 月初通知は9:00固定。既存の通知時刻欄を夜の確認通知に割り当てる。
+UPDATE app_settings SET notification_hour = 21, notification_minute = 30;
+`,
+  },
 ] as const;

@@ -3,12 +3,13 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 import { seedBundledHolidays } from './bundledHolidays';
 import { migrations } from './migrations';
 import { withDatabaseTransaction } from './transaction';
+import { traceStartup } from '../startup/startupDiagnostics';
 
 export const DATABASE_NAME = 'zubora-kakeibo.db';
 
 export async function initializeDatabaseForStartup(db: SQLiteDatabase): Promise<void> {
   try {
-    await initializeDatabase(db);
+    await traceStartup('DB初期化・移行・祝日確認', () => initializeDatabase(db));
   } catch (error) {
     // ExpoのProviderはonInit失敗時の接続を保持しないため、ここで閉じる。
     // DBファイルは残し、再試行時には新しい接続で初期化する。

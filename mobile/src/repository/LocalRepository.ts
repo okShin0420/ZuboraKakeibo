@@ -250,9 +250,12 @@ export class LocalRepository {
     });
   }
 
-  async setup(budgetAmount: number, asOf: IsoDate = dateToday()): Promise<Settings> {
+  async setup(budgetAmount: number, asOf: IsoDate = dateToday(), startDay = 1): Promise<Settings> {
     validBudgetAmount(budgetAmount);
     validDate(asOf);
+    if (!Number.isInteger(startDay) || startDay < 1 || startDay > 31) {
+      throw new Error('月度の開始日は1〜31日で指定してください');
+    }
     return transact(this.db, async (tx) => {
       const existing = await tx.getFirstAsync<{ count: number }>(
         `SELECT (SELECT COUNT(*) FROM app_settings) + (SELECT COUNT(*) FROM budget_cycle_rules)
@@ -261,17 +264,21 @@ export class LocalRepository {
       if ((existing?.count ?? 0) > 0) throw new Error('初期設定は完了しています');
       const timestamp = nowUtc();
       await tx.runAsync(
-        'INSERT INTO app_settings (id, monthly_notification_enabled, timezone, created_at, updated_at) VALUES (1, 1, ?, ?, ?)',
+        'INSERT INTO app_settings (id, monthly_notification_enabled, notification_hour, notification_minute, timezone, created_at, updated_at) VALUES (1, 1, 21, 30, ?, ?, ?)',
         ['Asia/Tokyo', timestamp, timestamp],
       );
       const ruleId = Crypto.randomUUID();
-      const rule: CycleRule = { startDay: 1, adjustForWeekendsAndHolidays: false };
-      const range = calculatePeriod(asOf.slice(0, 7), rule, rule, await calendarFrom(tx));
+      const rule: CycleRule = { startDay, adjustForWeekendsAndHolidays: false };
+      const calendar = await calendarFrom(tx);
+      const thisMonth = calculatePeriod(asOf.slice(0, 7), rule, rule, calendar);
+      const range = asOf < thisMonth.startDate
+        ? calculatePeriod(addMonths(asOf.slice(0, 7), -1), rule, rule, calendar)
+        : thisMonth;
       await tx.runAsync(
         `INSERT INTO budget_cycle_rules
          (id, start_day, adjust_for_weekends_and_holidays, effective_from, effective_to, created_at, updated_at)
-         VALUES (?, 1, 0, ?, NULL, ?, ?)`,
-        [ruleId, range.startDate, timestamp, timestamp],
+         VALUES (?, ?, 0, ?, NULL, ?, ?)`,
+        [ruleId, startDay, range.startDate, timestamp, timestamp],
       );
       await insertPeriod(tx, ruleId, range, budgetAmount, true);
       return this.settingsWithin(tx, asOf);
@@ -318,6 +325,22 @@ export class LocalRepository {
       await tx.runAsync('UPDATE budget_periods SET budget_amount = ?, budget_configured = 1, updated_at = ? WHERE id = ?', [amount, updatedAt, period.id]);
       return { budgetPeriodId: period.id, labelMonth: period.label_month, budgetAmount: amount,
         remainingAmount: amount - spent, updatedAt };
+    });
+  }
+
+  async addToCurrentBudget(amount: number, asOf: IsoDate = dateToday()): Promise<Budget> {
+    validExpenseAmount(amount);
+    validDate(asOf);
+    return transact(this.db, async (tx) => {
+      const period = await ensurePeriod(tx, asOf);
+      if (period.budget_configured !== 1) throw new Error('先に今月使えるお金を設定してください');
+      const nextAmount = validBudgetAmount(period.budget_amount + amount);
+      const spent = (await summaryAt(tx, asOf)).spent_amount;
+      const updatedAt = nowUtc();
+      await tx.runAsync('UPDATE budget_periods SET budget_amount = ?, updated_at = ? WHERE id = ?',
+        [nextAmount, updatedAt, period.id]);
+      return { budgetPeriodId: period.id, labelMonth: period.label_month, budgetAmount: nextAmount,
+        remainingAmount: nextAmount - spent, updatedAt };
     });
   }
 
@@ -527,7 +550,7 @@ export class LocalRepository {
              WHERE expenses.spent_on BETWEEN p.start_date AND p.end_date LIMIT 1)`,
         );
       }
-      await tx.runAsync('UPDATE app_settings SET monthly_notification_enabled = ?, notification_hour = 9, notification_minute = 0, updated_at = ? WHERE id = 1',
+      await tx.runAsync('UPDATE app_settings SET monthly_notification_enabled = ?, notification_hour = 21, notification_minute = 30, updated_at = ? WHERE id = 1',
         [input.monthlyNotificationEnabled ? 1 : 0, nowUtc()]);
       return this.settingsWithin(tx, asOf);
     });

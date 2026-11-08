@@ -3,7 +3,7 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 import { withDatabaseTransaction } from '../database/transaction';
 
 export const BACKUP_FORMAT = 'zubora-kakeibo-backup' as const;
-export const BACKUP_VERSION = 2 as const;
+export const BACKUP_VERSION = 3 as const;
 
 type AppSettingsRow = {
   id: number;
@@ -128,7 +128,7 @@ const nextDate = (date: string): string => {
 export function validateBackupDocument(input: unknown): BackupDocument {
   const root = objectValue(input, 'バックアップ');
   if (root.format !== BACKUP_FORMAT) throw new Error('ズボラ家計簿のバックアップファイルではありません');
-  if (root.version !== 1 && root.version !== BACKUP_VERSION) {
+  if (root.version !== 1 && root.version !== 2 && root.version !== BACKUP_VERSION) {
     throw new Error(`未対応のバックアップバージョンです（対応: 1〜${BACKUP_VERSION}）`);
   }
   const exportedAt = timestamp(root.exportedAt, '作成日時');
@@ -139,8 +139,10 @@ export function validateBackupDocument(input: unknown): BackupDocument {
     return {
       id: integerValue(row.id, '設定ID', 1, 1),
       monthly_notification_enabled: booleanInteger(row.monthly_notification_enabled, '通知設定'),
-      notification_hour: row.notification_hour === undefined ? 9 : integerValue(row.notification_hour, '通知時', 0, 23),
-      notification_minute: row.notification_minute === undefined ? 0 : integerValue(row.notification_minute, '通知分', 0, 59),
+      notification_hour: root.version === BACKUP_VERSION
+        ? integerValue(row.notification_hour, '夜の通知時', 19, 21) : 21,
+      notification_minute: root.version === BACKUP_VERSION
+        ? integerValue(row.notification_minute, '夜の通知分', 30, 30) : 30,
       timezone: stringValue(row.timezone, 'タイムゾーン', 64),
       created_at: timestamp(row.created_at, '設定作成日時'),
       updated_at: timestamp(row.updated_at, '設定更新日時'),
@@ -283,7 +285,8 @@ export async function restoreBackupDocument(db: SQLiteDatabase, document: Backup
       await transaction.runAsync(
         `INSERT INTO app_settings
          (id, monthly_notification_enabled, notification_hour, notification_minute, timezone, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [row.id, row.monthly_notification_enabled, 9, 0, row.timezone, row.created_at, row.updated_at],
+        [row.id, row.monthly_notification_enabled, 21, 30,
+          row.timezone, row.created_at, row.updated_at],
       );
     }
     for (const row of backup.data.cycleRules) {

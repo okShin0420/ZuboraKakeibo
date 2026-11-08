@@ -80,7 +80,7 @@ test('起動時の接続終了失敗でも初期化の原因を保持する', as
   }), error => error === cause);
 });
 
-test('通知を9時固定にし、月度開始日変更に沿った今後の通知日を返す', async () => {
+test('月初は9時固定、夜の確認は21:30固定、旧バックアップも21:30に移行する', async () => {
   const db = new SqliteAdapter();
   try {
     const repo = new LocalRepository(db);
@@ -91,14 +91,18 @@ test('通知を9時固定にし、月度開始日変更に沿った今後の通�
     }, '2026-10-07');
     assert.equal(settings.monthlyNotificationEnabled, true);
     const backup = JSON.parse(await repo.createBackupJson());
-    assert.equal(backup.data.settings[0].notification_hour, 9);
-    assert.equal(backup.data.settings[0].notification_minute, 0);
+    assert.equal(backup.data.settings[0].notification_hour, 21);
+    assert.equal(backup.data.settings[0].notification_minute, 30);
+    backup.version = 2;
     delete backup.data.settings[0].notification_hour;
     delete backup.data.settings[0].notification_minute;
     await repo.restoreBackupJson(JSON.stringify(backup));
     const fixedTime = JSON.parse(await repo.createBackupJson()).data.settings[0];
-    assert.equal(fixedTime.notification_hour, 9);
-    assert.equal(fixedTime.notification_minute, 0);
+    assert.equal(fixedTime.notification_hour, 21);
+    assert.equal(fixedTime.notification_minute, 30);
+    await repo.updateSettings({ monthlyNotificationEnabled: true,
+      startDay: 8, adjustForWeekendsAndHolidays: false }, '2026-10-07');
+    assert.equal(JSON.parse(await repo.createBackupJson()).data.settings[0].notification_hour, 21);
     assert.deepEqual(await repo.getUpcomingNotificationDates('2026-10-07', 3),
       ['2026-09-08', '2026-10-08', '2026-11-08']);
   } finally { db.close(); }
@@ -133,6 +137,56 @@ test('0円を設定済み予算として保存し、未設定の0円と区別す
     const configured = await repo.getSettings('2026-11-06');
     assert.equal(configured.currentBudgetAmount, 0);
     assert.equal(configured.currentBudgetConfigured, true);
+  } finally { db.close(); }
+});
+
+test('今月使えるお金を追加すると月度予算と残額が増え、他の月度は変わらない', async () => {
+  const db = new SqliteAdapter();
+  try {
+    const repo = new LocalRepository(db);
+    await repo.setup(50_000, '2026-10-06');
+    await repo.createExpense({ spentOn: '2026-10-06', amount: 7_000, memo: null });
+    const added = await repo.addToCurrentBudget(5_000, '2026-10-06');
+    assert.equal(added.budgetAmount, 55_000);
+    assert.equal(added.remainingAmount, 48_000);
+    assert.equal((await repo.getHome('2026-10-06')).remainingAmount, 48_000);
+    assert.equal((await repo.getCurrentBudget('2026-11-06')).budgetAmount, 0);
+    await assert.rejects(repo.addToCurrentBudget(0, '2026-10-06'), /1〜9,999,999/);
+    await assert.rejects(repo.addToCurrentBudget(9_945_000, '2026-10-06'), /9,999,999/);
+    assert.equal((await repo.getCurrentBudget('2026-10-06')).budgetAmount, 55_000);
+  } finally { db.close(); }
+});
+
+test('初回に選んだ月度開始日を予算と一緒に保存し、当日を含む月度へ割り当てる', async () => {
+  for (const [today, expectedLabel, expectedStart, expectedEnd] of [
+    ['2026-10-06', '2026-09-01', '2026-09-20', '2026-10-19'],
+    ['2026-10-25', '2026-10-01', '2026-10-20', '2026-11-19'],
+  ]) {
+    const db = new SqliteAdapter();
+    try {
+      const repo = new LocalRepository(db);
+      const settings = await repo.setup(48_000, today, 20);
+      assert.equal(settings.startDay, 20);
+      assert.equal(settings.currentPeriodRange.labelMonth, expectedLabel);
+      assert.equal(settings.currentPeriodRange.startDate, expectedStart);
+      assert.equal(settings.currentPeriodRange.endDate, expectedEnd);
+      assert.equal(settings.currentBudgetAmount, 48_000);
+      assert.equal(settings.currentBudgetConfigured, true);
+      assert.equal((await repo.getHome(today)).remainingAmount, 48_000);
+    } finally { db.close(); }
+  }
+});
+
+test('初回の月度開始日は1〜31日だけを受け付け、月末に存在しない日は丸める', async () => {
+  const db = new SqliteAdapter();
+  try {
+    const repo = new LocalRepository(db);
+    await assert.rejects(repo.setup(1000, '2026-02-10', 0), /1〜31日/);
+    await assert.rejects(repo.setup(1000, '2026-02-10', 32), /1〜31日/);
+    const settings = await repo.setup(1000, '2026-02-10', 31);
+    assert.equal(settings.startDay, 31);
+    assert.equal(settings.currentPeriodRange.startDate, '2026-01-31');
+    assert.equal(settings.currentPeriodRange.endDate, '2026-02-27');
   } finally { db.close(); }
 });
 
@@ -569,19 +623,19 @@ test('December 2026 and later calendar months are provisioned by label after cha
   } finally { db.close(); }
 });
 
-test('新規DBは移行v1〜v5を一度ずつ適用し、再起動でもデータを保持する', async () => {
-  assert.deepEqual(migrations.map(migration => migration.version), [1, 2, 3, 4, 5]);
+test('新規DBは移行v1〜v6を一度ずつ適用し、再起動でもデータを保持する', async () => {
+  assert.deepEqual(migrations.map(migration => migration.version), [1, 2, 3, 4, 5, 6]);
   const db = new SqliteAdapter(false);
   try {
     await initializeDatabase(db);
-    assert.equal((await db.getFirstAsync('PRAGMA user_version')).user_version, 5);
+    assert.equal((await db.getFirstAsync('PRAGMA user_version')).user_version, 6);
     const repo = new LocalRepository(db);
     await repo.setup(30_000, '2026-10-06');
     await repo.createExpense({ spentOn: '2026-10-06', amount: 1_200, memo: '検証用' });
     const before = await db.getFirstAsync('SELECT COUNT(*) AS count, SUM(amount) AS amount FROM expenses');
     await initializeDatabase(db);
     assert.deepEqual(await db.getFirstAsync('SELECT COUNT(*) AS count, SUM(amount) AS amount FROM expenses'), before);
-    assert.equal((await db.getFirstAsync('PRAGMA user_version')).user_version, 5);
+    assert.equal((await db.getFirstAsync('PRAGMA user_version')).user_version, 6);
     assert.equal((await db.getAllAsync('PRAGMA foreign_key_check')).length, 0);
   } finally { db.close(); }
 });
@@ -606,7 +660,7 @@ test('旧v1 DBの更新は予算・支出・参照関係を保持し、v2を一�
 
     await initializeDatabase(db);
 
-    assert.equal((await db.getFirstAsync('PRAGMA user_version')).user_version, 5);
+    assert.equal((await db.getFirstAsync('PRAGMA user_version')).user_version, 6);
     assert.deepEqual(await db.getFirstAsync('SELECT COUNT(*) AS count, SUM(amount) AS amount FROM expenses'), before);
     assert.deepEqual({ ...await db.getFirstAsync('SELECT budget_amount, budget_configured FROM budget_periods WHERE id = ?', [periodId]) },
       { budget_amount: 30_000, budget_configured: 1 });
@@ -655,7 +709,7 @@ test('設定・月度・予算・支出を1つのバージョン付きJSONへ保
     const json = await repo.createBackupJson();
     const backup = JSON.parse(json);
     assert.equal(backup.format, 'zubora-kakeibo-backup');
-    assert.equal(backup.version, 2);
+    assert.equal(backup.version, 3);
     assert.equal(backup.data.settings.length, 1);
     assert.ok(backup.data.cycleRules.length >= 1);
     assert.ok(backup.data.budgetPeriods.length >= 1);

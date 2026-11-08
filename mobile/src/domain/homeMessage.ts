@@ -6,7 +6,20 @@ const messages = [
   ['もう残りわずか！今すぐ確認しよう。', '残りわずか！必要なものだけに。', 'ほとんど残ってないよ。出費に注意！'],
 ] as const;
 
+const overBudgetMessages = [
+  'ちょっと使いすぎちゃったね。',
+  '今月の使い方を、少し振り返ってね。',
+  'あと少し。できる範囲でやりくりしよう。',
+  '惜しい。来月また一緒に始めよう。',
+] as const;
+
 export function homeMessage(budgetAmount: number, remainingAmount: number, remainingDays: number): string {
+  if (remainingAmount < 0) {
+    if (remainingDays <= 4) return overBudgetMessages[3];
+    if (remainingDays >= 25) return overBudgetMessages[0];
+    if (remainingDays >= 15) return overBudgetMessages[1];
+    return overBudgetMessages[2];
+  }
   if (budgetAmount <= 0) return '今月の金額を設定してね。';
   if (remainingDays < 5) return '今月もあと少し。自分のペースで。';
 

@@ -18,8 +18,8 @@ let onboardingFirstImagePromise: Promise<boolean> | undefined;
 export function preloadOnboardingFirstImage(): Promise<boolean> {
   if (Platform.OS === 'web') return Promise.resolve(true);
   if (!onboardingFirstImagePromise) {
-    const uri = NativeImage.resolveAssetSource(onboardingHomePhoneImage).uri;
-    onboardingFirstImagePromise = ExpoImage.prefetch(uri, 'memory-disk').catch(() => false);
+    const uri = NativeImage.resolveAssetSource(onboardingHomePhoneImage)?.uri;
+    onboardingFirstImagePromise = uri ? ExpoImage.prefetch(uri, 'memory-disk').catch(() => false) : Promise.resolve(false);
   }
   return onboardingFirstImagePromise;
 }
@@ -30,8 +30,10 @@ export function preloadVisualAssets(): Promise<boolean> {
     // オンボーディング画像は各ページを描画するときに読み込む。
     // 初期画面の表示前に全ページ分を先読みすると、説明1の表示まで待ちが発生する。
     const urls = [dogImage, dogBlinkEyesImage, homeSkyImage]
-      .map(asset => NativeImage.resolveAssetSource(asset).uri);
-    preloadPromise = ExpoImage.prefetch(urls, 'memory-disk').catch(() => false);
+      .map(asset => NativeImage.resolveAssetSource(asset)?.uri);
+    preloadPromise = urls.every((uri): uri is string => !!uri)
+      ? ExpoImage.prefetch(urls, 'memory-disk').catch(() => false)
+      : Promise.resolve(false);
   }
   return preloadPromise;
 }

@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 
 import type { Expense } from '../repository/types';
+import { MAX_INPUT_AMOUNT } from '../domain/amount';
 import { yen } from './format';
 import { dogImage } from './imageAssets';
 import { AmountCaret, colors, NumberPad, PrimaryButton } from './theme';
@@ -65,6 +66,71 @@ export function MoneyScreen({ initialAmount, setup, onSave, onClose, onRestore, 
     </Animated.View>
   </View>;
   return setup ? content : <Modal visible transparent animationType="none" onRequestClose={() => close()}>{content}</Modal>;
+}
+
+export function AddBudgetSheet({ currentBudget, onSave, onClose }: {
+  currentBudget: number; onSave: (amount: number) => Promise<void>; onClose: () => void;
+}) {
+  const startingBudget = useRef(currentBudget).current;
+  const [amount, setAmount] = useState('0');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const { width, height } = useWindowDimensions();
+  const compact = width <= 350 || height <= 700;
+  const addition = Number(amount) || 0;
+  const projectedBudget = startingBudget + addition;
+  const canAdd = addition >= 1 && projectedBudget <= MAX_INPUT_AMOUNT;
+  const projectedFontSize = Math.min(42, Math.max(24,
+    Math.floor((width - 104) / (yen(projectedBudget).length * 0.63))));
+  const { backdropStyle, sheetStyle, close } = useBottomSheetMotion(true, onClose, height);
+  const save = async () => {
+    if (busy || !canAdd) return;
+    setBusy(true); setError('');
+    try { await onSave(addition); close(); }
+    catch (cause) { setError(errorText(cause)); }
+    finally { setBusy(false); }
+  };
+  return <Modal visible transparent animationType="none" onRequestClose={() => close()}>
+    <View style={styles.modalFill} testID="add-budget-sheet">
+      <Animated.View pointerEvents="box-none" style={[StyleSheet.absoluteFill, backdropStyle]}>
+        <BlurView intensity={25} tint="dark" style={StyleSheet.absoluteFill} />
+        <Pressable style={styles.backdrop} onPress={() => close()} accessibilityLabel="閉じる" />
+      </Animated.View>
+      <Animated.View style={[styles.moneySheet, { height: Math.min(height - 28, 760) }, sheetStyle]}>
+        <View style={[styles.header, compact && styles.compactHeader]}>
+          <View style={styles.headerSide} />
+          <Text style={styles.headerTitle}>今月使えるお金の追加</Text>
+          <Pressable accessibilityRole="button" accessibilityLabel="閉じる" onPress={() => close()} style={styles.closeButton}>
+            <X size={16} color={colors.ink} />
+          </Pressable>
+        </View>
+        <ScrollView contentContainerStyle={styles.moneyContent} showsVerticalScrollIndicator={false}>
+          <View style={[styles.guide, styles.addGuide, compact && styles.compactGuide]}>
+            <Text style={styles.addGuideLabel}>今月使えるお金</Text>
+            <View style={styles.addGuideAmountRow} accessibilityLabel={`追加後の今月使えるお金 ${yen(projectedBudget)}円`}>
+              <Text style={styles.addGuideCurrency}>¥</Text>
+              <Text style={[styles.addGuideAmount, { fontSize: projectedFontSize }]}
+                numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.55}>{yen(projectedBudget)}</Text>
+            </View>
+          </View>
+          <View style={[styles.budgetEntry, compact && styles.compactBudgetEntry]}>
+            <View style={styles.moneyAmountRow}>
+              <Text style={styles.moneyCurrency}>¥</Text>
+              <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.48} style={styles.moneyAmount}>{yen(Number(amount) || 0)}</Text>
+              <AmountCaret color={colors.blue} />
+            </View>
+            {projectedBudget > MAX_INPUT_AMOUNT &&
+              <Text accessibilityRole="alert" style={styles.error}>追加後の金額は9,999,999円までです。</Text>}
+            {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
+            <PrimaryButton label={busy ? '追加中…' : '追加する'} onPress={() => void save()}
+              disabled={busy || !canAdd} style={styles.budgetSave} />
+          </View>
+          <View style={styles.moneySpacer} />
+          <NumberPad value={amount} onChange={value => { setAmount(value); setError(''); }} compact={compact} quickAmounts={[10000, 30000, 50000]} />
+        </ScrollView>
+      </Animated.View>
+    </View>
+  </Modal>;
 }
 
 export function ExpenseSheet({ initial, onClose, onSave }: {
@@ -163,6 +229,11 @@ const styles = StyleSheet.create({
     borderColor: colors.white, backgroundColor: '#FFFFFFF2', paddingHorizontal: 14, paddingVertical: 10 },
   guideText: { color: colors.ink, fontSize: 11, fontWeight: '700' },
   guideDog: { position: 'absolute', right: 22, bottom: -34, width: 170, height: 170 },
+  addGuide: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 18 },
+  addGuideLabel: { color: colors.white, fontSize: 15, fontWeight: '700', marginBottom: 14 },
+  addGuideAmountRow: { width: '100%', flexDirection: 'row', alignItems: 'baseline', justifyContent: 'center', gap: 6 },
+  addGuideCurrency: { color: colors.white, fontFamily: 'ui-rounded', fontSize: 20, fontWeight: '600' },
+  addGuideAmount: { flexShrink: 1, color: colors.white, fontFamily: 'ui-rounded', fontWeight: '700' },
   budgetEntry: { paddingHorizontal: 20, paddingTop: 10 },
   compactBudgetEntry: { paddingHorizontal: 14 },
   moneyAmountRow: { height: 82, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7 },

@@ -2,14 +2,15 @@
   "expo": {
     "name": "ズボラ家計簿",
     "slug": "zubora-kakeibo",
-    "version": "0.1.0",
+    "scheme": "zuborakakeibo",
+    "version": "1.1.0",
     "orientation": "portrait",
-    "icon": "./assets/apple-icon-ios-user-fullbleed.png",
+    "icon": "./assets/app-icon-dog-gradient.png",
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.okshin0420.zuborakakeibo",
-      "icon": "./assets/apple-icon-ios-user-fullbleed.png",
+      "icon": "./assets/app-icon-dog-gradient.png",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
@@ -26,6 +27,23 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
+      [
+        "expo-widgets",
+        {
+          "widgets": [
+            {
+              "name": "OpenHomeWidgetV2",
+              "displayName": "今月あと使えるお金",
+              "description": "残額と残り日数を見て、ホームを開きます",
+              "ios": {
+                "supportedFamilies": ["accessoryRectangular"],
+                "contentMarginsDisabled": true,
+                "initialLayout": "./src/widgets/openHomeWidget.tsx"
+              }
+            }
+          ]
+        }
+      ],
       "expo-sqlite",
       "expo-notifications",
       "expo-image",
@@ -41,7 +59,18 @@
             "enableFullScreenImage_legacy": true
           }
         }
-      ]
+      ],
+      [
+        "expo-localization",
+        {
+          "supportedLocales": {
+            "ios": [
+              "ja"
+            ]
+          }
+        }
+      ],
+      "expo-status-bar"
     ],
     "extra": {
       "eas": {

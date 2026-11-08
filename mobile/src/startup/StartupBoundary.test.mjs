@@ -16,12 +16,14 @@ Module._load = function (request, parent, isMain) {
   if (request === 'expo-splash-screen') return { hideAsync: async () => { hideCalls += 1; } };
   return originalLoad.call(this, request, parent, isMain);
 };
-require.extensions['.tsx'] = (module, filename) => {
+const compileTypeScript = (module, filename) => {
   const code = ts.transpileModule(readFileSync(filename, 'utf8'), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX },
   }).outputText;
   module._compile(code, filename);
 };
+require.extensions['.tsx'] = compileTypeScript;
+require.extensions['.ts'] = compileTypeScript;
 const { StartupBoundary } = require('./StartupBoundary.tsx');
 
 test('起動エラーではスプラッシュを閉じ、エラー画面から新しい子ツリーで再試行する', async () => {

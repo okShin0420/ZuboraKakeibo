@@ -4,26 +4,32 @@ import { SQLiteProvider } from 'expo-sqlite';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFonts } from 'expo-font';
+import * as Notifications from 'expo-notifications';
 import * as SplashScreen from 'expo-splash-screen';
-import { AccessibilityInfo, Alert, Animated, AppState, Pressable, SafeAreaView, StyleSheet, Text, View } from 'react-native';
+import { AccessibilityInfo, Alert, Animated, AppState, Linking, Pressable, SafeAreaView, StyleSheet, Text, View } from 'react-native';
+
+import { updateHomeWidget } from './src/widgets/registerWidgets';
 
 import { DATABASE_NAME, initializeDatabaseForStartup } from './src/database/initializeDatabase';
 import { StartupBoundary } from './src/startup/StartupBoundary';
+import { beginStartupStep, endStartupStep, markStartupReady, recordStartupError, traceStartup } from './src/startup/startupDiagnostics';
 import { deleteLocalBackupFiles, pickAndRestoreBackup, restoreLatestAutomaticBackup, shareBackup } from './src/backup/backupFiles';
 import { useLocalRepository } from './src/repository/useLocalRepository';
 import type { Expense, Home, Settings } from './src/repository/types';
 import {
-  CalendarScreen, ExpenseSheet, GraphScreen, HomeScreen, InitialBudgetWelcomeScreen, MoneyScreen, MonthlyBudgetWelcomeScreen, OnboardingScreen, SettingsSheet, TabBar,
+  AddBudgetSheet, CalendarScreen, ExpenseSheet, GraphScreen, HomeScreen, InitialBudgetWelcomeScreen, InitialStartDayScreen, MoneyScreen, MonthlyBudgetWelcomeScreen, OnboardingScreen, SettingsSheet, TabBar,
   type Tab,
 } from './src/ui/Screens';
 import { todayInTokyo } from './src/ui/format';
 import { homeSkyImage, preloadOnboardingFirstImage, preloadVisualAssets } from './src/ui/imageAssets';
 import { CalendarSkyBackground, GraphSkyBackground } from './src/ui/skyBackground';
 import { cancelMonthlyNotifications, syncMonthlyNotifications } from './src/notifications/monthlyNotifications';
+import { cancelEveningReminders, isEveningReminderNotification, scheduleEveningReminderTest, syncEveningReminders } from './src/notifications/eveningReminders';
 
 const messageOf = (error: unknown) => error instanceof Error ? error.message : '処理できませんでした。もう一度お試しください。';
 const SPLASH_MINIMUM_MS = 500;
 const SPLASH_FADE_MS = 280;
+const WIDGET_HOME_URL = 'zuborakakeibo://home';
 const splashStartedAt = Date.now();
 
 SplashScreen.setOptions({ fade: true, duration: SPLASH_FADE_MS });
@@ -35,7 +41,8 @@ function MobileApp() {
   const splashPreviewOpacity = useRef(new Animated.Value(1)).current;
   const reduceMotion = useRef(false);
   const [splashPreviewVisible, setSplashPreviewVisible] = useState(false);
-  const [status, setStatus] = useState<'loading' | 'onboarding' | 'onboardingPreview' | 'setup' | 'setupPreview' | 'monthlySetup' | 'ready' | 'error'>('loading');
+  const [status, setStatus] = useState<'loading' | 'onboarding' | 'onboardingPreview' | 'startDaySetup' | 'setup' | 'monthlySetup' | 'ready' | 'error'>('loading');
+  const [initialStartDay, setInitialStartDay] = useState(1);
   const [onboardingPage, setOnboardingPage] = useState(0);
   const [onboardingBusy, setOnboardingBusy] = useState(false);
   const [onboardingError, setOnboardingError] = useState('');
@@ -44,23 +51,27 @@ function MobileApp() {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [moneyOpen, setMoneyOpen] = useState(false);
+  const [addBudgetOpen, setAddBudgetOpen] = useState(false);
   const [monthlyWelcomePreview, setMonthlyWelcomePreview] = useState(false);
   const [expenseDraft, setExpenseDraft] = useState<{ date: string; initial?: Expense } | null>(null);
   const [settingsBusy, setSettingsBusy] = useState(false);
   const [dataBusy, setDataBusy] = useState(false);
   const [settingsError, setSettingsError] = useState('');
   const [notificationWarning, setNotificationWarning] = useState('');
+  const [notificationTestBusy, setNotificationTestBusy] = useState(false);
+  const [notificationTestMessage, setNotificationTestMessage] = useState('');
   const [dataMessage, setDataMessage] = useState('');
   const [error, setError] = useState('');
   const [revision, setRevision] = useState(0);
 
   const refresh = useCallback(async () => {
     setMonthlyWelcomePreview(false);
-    if (!(await repo.isInitialized())) {
-      const complete = await repo.isOnboardingComplete();
+    if (!(await traceStartup('初期設定の保存状態を確認', () => repo.isInitialized()))) {
+      void traceStartup('ウィジェットの初期表示を同期', () => updateHomeWidget(null));
+      const complete = await traceStartup('初回説明の保存状態を確認', () => repo.isOnboardingComplete());
       if (complete) {
-        await preloadVisualAssets();
-        setStatus('setup');
+        await traceStartup('初期設定画面の画像先読み', preloadVisualAssets);
+        setStatus(current => current === 'setup' ? current : 'startDaySetup');
       } else {
         // オンボーディングを先に描画する。ホーム用画像や後続ページの先読みで、
         // 説明1画面の表示を待たせない。
@@ -68,12 +79,13 @@ function MobileApp() {
       }
       return;
     }
-    const imagesReady = preloadVisualAssets();
+    const imagesReady = traceStartup('ホーム画像の先読み', preloadVisualAssets);
     const today = todayInTokyo();
-    const nextHome = await repo.getHome(today);
-    const nextSettings = await repo.getSettings(today);
+    const nextHome = await traceStartup('ホームの月度・残額を取得', () => repo.getHome(today));
+    const nextSettings = await traceStartup('月度の設定を取得', () => repo.getSettings(today));
     setHome(nextHome);
     setSettings(nextSettings);
+    void traceStartup('ウィジェットの残額表示を同期', () => updateHomeWidget(nextSettings.currentBudgetConfigured ? nextHome : null));
     await imagesReady;
     if (!nextSettings.currentBudgetConfigured) {
       setSettingsOpen(false);
@@ -84,20 +96,62 @@ function MobileApp() {
     }
     setRevision(value => value + 1);
     void syncMonthlyNotifications(nextSettings, () => repo.getUpcomingNotificationDates(today, 13))
+      .then(async monthlyWarning => {
+        const eveningWarning = await syncEveningReminders(nextSettings);
+        return monthlyWarning || eveningWarning;
+      })
       .then(setNotificationWarning)
       .catch(cause => setNotificationWarning(`通知を予約できませんでした。アプリを開き直してお試しください。${messageOf(cause)}`));
   }, [repo]);
 
   useEffect(() => {
-    void refresh().catch(cause => { setError(messageOf(cause)); setStatus('error'); });
+    endStartupStep('database');
+    void refresh().catch(cause => { recordStartupError('ホーム初期読み込み', cause); setError(messageOf(cause)); setStatus('error'); });
   }, [refresh]);
 
   useEffect(() => {
+    if (status !== 'loading' && status !== 'error') markStartupReady(status);
+  }, [status]);
+
+  useEffect(() => {
     const listener = AppState.addEventListener('change', state => {
-      if (state === 'active') void refresh().catch(cause => { setError(messageOf(cause)); setStatus('error'); });
+      if (state === 'active') void refresh().catch(cause => { recordStartupError('復帰時のホーム読み込み', cause); setError(messageOf(cause)); setStatus('error'); });
     });
     return () => listener.remove();
   }, [refresh]);
+
+  useEffect(() => {
+    const openWidgetHome = (url: string | null | undefined) => {
+      if (url !== WIDGET_HOME_URL) return;
+      setSettingsOpen(false);
+      setMoneyOpen(false);
+      setAddBudgetOpen(false);
+      setExpenseDraft(null);
+      setTab('ホーム');
+    };
+    void Linking.getInitialURL().then(openWidgetHome);
+    const listener = Linking.addEventListener('url', event => openWidgetHome(event.url));
+    return () => listener.remove();
+  }, []);
+
+  useEffect(() => {
+    const openHome = (data: Record<string, unknown>) => {
+      if (!isEveningReminderNotification(data)) return;
+      setSettingsOpen(false);
+      setMoneyOpen(false);
+      setAddBudgetOpen(false);
+      setExpenseDraft(null);
+      setTab('ホーム');
+      void Notifications.clearLastNotificationResponseAsync().catch(() => undefined);
+    };
+    void Notifications.getLastNotificationResponseAsync().then(response => {
+      if (response) openHome(response.notification.request.content.data ?? {});
+    }).catch(() => undefined);
+    const listener = Notifications.addNotificationResponseReceivedListener(response => {
+      openHome(response.notification.request.content.data ?? {});
+    });
+    return () => listener.remove();
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -147,10 +201,29 @@ function MobileApp() {
     finally { setSettingsBusy(false); }
   };
 
+  const testNotification = async () => {
+    if (notificationTestBusy) return;
+    setNotificationTestBusy(true);
+    setNotificationTestMessage('');
+    try {
+      await scheduleEveningReminderTest();
+      setNotificationTestMessage('5秒後にテスト通知を送ります。');
+    } catch (cause) {
+      setNotificationTestMessage(messageOf(cause));
+    } finally {
+      setNotificationTestBusy(false);
+    }
+  };
+
   const saveMoney = async (amount: number) => {
     if (dataBusy) return;
-    if (status === 'setup') await repo.setup(amount);
+    if (status === 'setup') await repo.setup(amount, todayInTokyo(), initialStartDay);
     else await repo.updateCurrentBudget(amount);
+    await refresh();
+  };
+
+  const addBudget = async (amount: number) => {
+    await repo.addToCurrentBudget(amount, todayInTokyo());
     await refresh();
   };
 
@@ -164,7 +237,7 @@ function MobileApp() {
     setOnboardingError('');
     try {
       await repo.completeOnboarding();
-      setStatus('setup');
+      setStatus('startDaySetup');
     } catch (cause) {
       setOnboardingError(messageOf(cause));
     } finally {
@@ -269,13 +342,15 @@ function MobileApp() {
     setExpenseDraft(null);
     setHome(null);
     setSettings(null);
+    void updateHomeWidget(null);
     setTab('ホーム');
     setOnboardingPage(0);
+    setInitialStartDay(1);
     setOnboardingError('');
     setNotificationWarning('');
     setStatus('onboarding');
     try {
-      await cancelMonthlyNotifications();
+      await Promise.all([cancelMonthlyNotifications(), cancelEveningReminders()]);
     } catch (cause) {
       Alert.alert('通知の取り消しを確認してください', `データは削除しましたが、予約済みの通知を取り消せませんでした。${messageOf(cause)}`);
     } finally {
@@ -302,7 +377,7 @@ function MobileApp() {
   };
 
   const skySurface = status === 'ready';
-  const blueSetupSurface = status === 'monthlySetup' || status === 'setup' || status === 'setupPreview';
+  const blueSetupSurface = status === 'monthlySetup' || status === 'startDaySetup' || status === 'setup';
   const onboardingSurface = status === 'onboarding' || status === 'onboardingPreview';
   const ContentSurface = onboardingSurface ? View : SafeAreaView;
   return <View style={[styles.root, skySurface && styles.skyRoot, blueSetupSurface && styles.monthlySetupRoot,
@@ -314,8 +389,8 @@ function MobileApp() {
     {status === 'ready' && tab === 'カレンダー' && <CalendarSkyBackground />}
     {status === 'ready' && tab === 'グラフ' && <GraphSkyBackground />}
     {status === 'ready' && <View pointerEvents="none" style={[styles.bottomSafeFill,
-      (moneyOpen || expenseDraft) && styles.keypadBottomSafeFill]} />}
-    {blueSetupSurface && <View pointerEvents="none" style={styles.monthlyKeyboardSafeFill} />}
+      (moneyOpen || addBudgetOpen || expenseDraft) && styles.keypadBottomSafeFill]} />}
+    {blueSetupSurface && <View pointerEvents="none" style={status === 'startDaySetup' ? styles.startDaySafeFill : styles.monthlyKeyboardSafeFill} />}
     <ContentSurface testID="app-safe-area" style={styles.safe}>
     <StatusBar style={skySurface || blueSetupSurface || onboardingSurface ? 'light' : 'dark'} hidden={onboardingSurface || splashPreviewVisible} />
     {status === 'loading' && <View style={styles.center}><Text>読み込み中です…</Text></View>}
@@ -332,18 +407,18 @@ function MobileApp() {
         else void finishOnboarding();
       }}
       onSkip={() => void finishOnboarding()} />}
+    {status === 'startDaySetup' && <InitialStartDayScreen day={initialStartDay} onChange={setInitialStartDay}
+      onNext={() => setStatus('setup')} />}
     {status === 'setup' && <InitialBudgetWelcomeScreen key="initial-setup" onStart={saveMoney}
       onRestore={confirmRestore} restoreBusy={dataBusy} />}
-    {status === 'setupPreview' && <InitialBudgetWelcomeScreen key="initial-setup-preview" preview
-      onStart={async () => {}} onRestore={confirmRestore} restoreBusy={dataBusy}
-      onClosePreview={() => { setStatus('ready'); }} />}
     {status === 'monthlySetup' && settings && <MonthlyBudgetWelcomeScreen key={settings.currentPeriodRange.labelMonth}
       onStart={monthlyWelcomePreview ? async () => {
         setMonthlyWelcomePreview(false);
         setStatus('ready');
       } : saveMoney} />}
     {status === 'ready' && home && settings && <>
-      {tab === 'ホーム' && <HomeScreen home={home} onSettings={() => setSettingsOpen(true)} onExpense={() => setExpenseDraft({ date: todayInTokyo() })} />}
+      {tab === 'ホーム' && <HomeScreen home={home} onSettings={() => setSettingsOpen(true)}
+        onExpense={() => setExpenseDraft({ date: todayInTokyo() })} onAddBudget={() => setAddBudgetOpen(true)} />}
       {tab === 'カレンダー' && <CalendarScreen revision={revision} initialMonth={home.labelMonth.slice(0, 7)}
         initialPeriod={settings.currentPeriodRange} onExpense={(date, initial) => setExpenseDraft({ date, initial })}
         onExpenseDeleted={refresh} onSettings={() => setSettingsOpen(true)} />}
@@ -352,13 +427,17 @@ function MobileApp() {
       <TabBar active={tab} onChange={setTab} />
       {settingsOpen && !moneyOpen && <SettingsSheet settings={settings} busy={settingsBusy} error={settingsError || notificationWarning}
         onClose={() => setSettingsOpen(false)} onMoney={() => { setSettingsOpen(false); setMoneyOpen(true); }}
-        onChange={changes => void saveSettings(changes)} dataBusy={dataBusy} dataMessage={dataMessage}
+        onChange={changes => void saveSettings(changes)} onTestNotification={() => void testNotification()}
+        notificationTestBusy={notificationTestBusy} notificationTestMessage={notificationTestMessage}
+        dataBusy={dataBusy} dataMessage={dataMessage}
         onBackup={confirmBackup} onRestore={confirmRestore} onRestorePrevious={confirmRestorePrevious}
         onDeleteAllData={confirmDeleteAllData} />}
       {moneyOpen &&
         <MoneyScreen key="edit" initialAmount={settings.currentBudgetAmount} setup={false}
           onSave={saveMoney} onClose={() => { setMoneyOpen(false); setSettingsOpen(true); }} />
       }
+      {addBudgetOpen && <AddBudgetSheet currentBudget={settings.currentBudgetAmount}
+        onSave={addBudget} onClose={() => setAddBudgetOpen(false)} />}
       {expenseDraft && <ExpenseSheet key={`${expenseDraft.initial?.id ?? 'new'}-${expenseDraft.date}`}
         initial={expenseDraft.initial} onClose={() => setExpenseDraft(null)} onSave={saveExpense} />}
     </>}
@@ -374,6 +453,15 @@ function AppDatabase() {
   const [fontsLoaded, fontError] = useFonts({
     NotoSansJP: require('./assets/fonts/NotoSansJP.ttf'),
   });
+  useEffect(() => {
+    if (!fontsLoaded && !fontError) {
+      beginStartupStep('font', 'フォントの読み込み');
+    } else {
+      endStartupStep('font');
+      if (fontError) recordStartupError('フォント読み込み（代替フォントで続行）', fontError, false);
+      beginStartupStep('database', 'DB接続・初期化');
+    }
+  }, [fontsLoaded, fontError]);
   useEffect(() => { void preloadOnboardingFirstImage(); }, []);
   if (!fontsLoaded && !fontError) return null;
   return <SQLiteProvider databaseName={DATABASE_NAME} onInit={initializeDatabaseForStartup}><MobileApp /></SQLiteProvider>;
@@ -393,6 +481,7 @@ const styles = StyleSheet.create({
   bottomSafeFill: { position: 'absolute', bottom: 0, left: 0, right: 0, height: 80, backgroundColor: '#FFFFFF' },
   keypadBottomSafeFill: { backgroundColor: '#DFE1E5' },
   monthlyKeyboardSafeFill: { position: 'absolute', bottom: 0, left: 0, right: 0, height: 80, backgroundColor: '#DFE1E5' },
+  startDaySafeFill: { position: 'absolute', bottom: 0, left: 0, right: 0, height: 80, backgroundColor: '#017AF4' },
   safe: { flex: 1, backgroundColor: 'transparent' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24, gap: 16 },
   error: { color: '#B33340', textAlign: 'center' },

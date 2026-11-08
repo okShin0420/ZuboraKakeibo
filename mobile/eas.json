@@ -14,9 +14,31 @@
     },
     "production": {
       "autoIncrement": true
+    },
+    "startup-diagnostics": {
+      "extends": "production",
+      "env": {
+        "EXPO_PUBLIC_STARTUP_DIAGNOSTICS": "1"
+      }
+    },
+    "widget-static-diagnostics": {
+      "extends": "production",
+      "env": {
+        "EXPO_WIDGET_STATIC_DIAGNOSTIC": "1"
+      }
+    },
+    "widget-text-diagnostics": {
+      "extends": "production",
+      "env": {
+        "EXPO_WIDGET_TEXT_DIAGNOSTIC": "1"
+      }
     }
   },
   "submit": {
-    "production": {}
+    "production": {
+      "ios": {
+        "ascAppId": "6823954494"
+      }
+    }
   }
 }
