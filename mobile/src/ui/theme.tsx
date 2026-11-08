@@ -73,14 +73,15 @@ const keyRows = [
   [['7', 'PQRS'], ['8', 'TUV'], ['9', 'WXYZ']],
 ];
 
-export function NumberPad({ value, onChange, sky = false, compact = false, quickAmounts = [5000, 1000, 2000] }: {
-  value: string; onChange: (value: string) => void; sky?: boolean; compact?: boolean; quickAmounts?: number[];
+export function NumberPad({ value, onChange, sky = false, compact = false, quickAmounts = [5000, 1000, 2000], bottomPadding }: {
+  value: string; onChange: (value: string) => void; sky?: boolean; compact?: boolean; quickAmounts?: number[]; bottomPadding?: number;
 }) {
   const append = (digit: string) => {
     const next = `${value === '0' ? '' : value}${digit}`;
     if (next.length <= MAX_INPUT_DIGITS) onChange(next);
   };
-  return <View style={[styles.pad, compact && styles.compactPad, sky && styles.skyPad]}>
+  return <View style={[styles.pad, compact && styles.compactPad, sky && styles.skyPad,
+    bottomPadding !== undefined && { paddingBottom: bottomPadding }]}>
     <View style={[styles.quickRow, compact && styles.compactQuickRow, sky && styles.skyQuickRow]}>{quickAmounts.map(amount =>
       <Pressable key={amount} accessibilityRole="button" accessibilityLabel={`${yen(amount)}円を設定`}
         onPress={() => onChange(String(amount))} style={[styles.quickKey, sky && styles.skyQuickKey]}>

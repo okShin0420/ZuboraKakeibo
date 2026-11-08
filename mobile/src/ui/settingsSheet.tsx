@@ -84,12 +84,14 @@ export function SettingsSheet({ settings, busy, error, dataBusy, dataMessage, on
             <View style={styles.notificationCard}>
             <View style={styles.cardRow}>
               <View style={styles.iconBox}><Bell size={19} color={colors.blue} strokeWidth={1.8} /></View>
-              <View style={styles.rowCopy}><Text style={styles.rowTitle}>通知を受け取る</Text><Text style={styles.rowHint}>月度の開始時と、火・木・土の未起動日にお知らせ</Text></View>
+              <View style={styles.rowCopy}><Text style={styles.rowTitle}>通知を受け取る</Text><Text style={styles.rowHint}>月初・夜の確認・予算設定のお知らせ</Text></View>
               <SettingSwitch value={settings.monthlyNotificationEnabled} disabled={busy} label="通知を受け取る"
                 onChange={value => onChange({ monthlyNotificationEnabled: value })} />
             </View>
             <View style={styles.reminderOptions}>
-              <Text style={styles.reminderExplanation}>月初は朝9:00。夜の確認は火・木・土の21:30に、アプリを開かなかった日だけ届きます。</Text>
+              <Text style={styles.reminderExplanation}>{settings.currentBudgetAmount <= 0
+                ? '月初は朝9:00。予算が0円の間は火・土の21:30に、アプリを開かなかった日だけお知らせします。'
+                : '月初は朝9:00。夜の確認は火・木・土の21:30に、アプリを開かなかった日だけ届きます。'}</Text>
             </View>
             </View>
           </View>

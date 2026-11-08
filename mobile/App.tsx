@@ -95,7 +95,7 @@ function MobileApp() {
     setRevision(value => value + 1);
     void syncMonthlyNotifications(nextSettings, () => repo.getUpcomingNotificationDates(today, 13))
       .then(async monthlyWarning => {
-        const eveningWarning = await syncEveningReminders(nextSettings);
+        const eveningWarning = await syncEveningReminders(nextSettings, new Date(), nextHome.budgetAmount <= 0);
         return monthlyWarning || eveningWarning;
       })
       .then(setNotificationWarning)

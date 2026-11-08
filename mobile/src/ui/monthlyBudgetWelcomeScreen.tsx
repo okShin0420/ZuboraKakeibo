@@ -7,25 +7,26 @@ import { AmountCaret, NumberPad } from './theme';
 
 const messageOf = (error: unknown) => error instanceof Error ? error.message : '保存できませんでした。';
 
-function BudgetWelcomeScreen({ testID, title, buttonLabel, onStart, onRestore, restoreBusy, preview, onClosePreview }: {
+function BudgetWelcomeScreen({ testID, title, buttonLabel, onStart, onRestore, restoreBusy, preview, onClosePreview, showSkip = false }: {
   testID: string;
   title: string; buttonLabel: string; onStart: (amount: number) => Promise<void>;
-  onRestore?: () => void; restoreBusy?: boolean; preview?: boolean; onClosePreview?: () => void;
+  onRestore?: () => void; restoreBusy?: boolean; preview?: boolean; onClosePreview?: () => void; showSkip?: boolean;
 }) {
   const [amount, setAmount] = useState('0');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [amountLineWidth, setAmountLineWidth] = useState(0);
   const [amountTextWidth, setAmountTextWidth] = useState(0);
-  const { height } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
   const compact = height <= 700;
+  const narrow = width <= 350;
   const value = Number(amount);
 
-  const start = async () => {
-    if (busy || !Number.isSafeInteger(value) || value < 0) return;
+  const start = async (selectedAmount = value) => {
+    if (busy || !Number.isSafeInteger(selectedAmount) || selectedAmount < 0) return;
     setBusy(true);
     setError('');
-    try { await onStart(value); }
+    try { await onStart(selectedAmount); }
     catch (cause) { setError(messageOf(cause)); }
     finally { setBusy(false); }
   };
@@ -52,12 +53,24 @@ function BudgetWelcomeScreen({ testID, title, buttonLabel, onStart, onRestore, r
     </View>
 
     <View style={[styles.bottom, compact && styles.bottomCompact]}>
-      <Pressable accessibilityRole="button" accessibilityLabel={buttonLabel}
-        accessibilityState={{ disabled: busy || !!restoreBusy }} disabled={busy || !!restoreBusy}
-        onPress={() => preview ? onClosePreview?.() : void start()} style={[styles.startButton, compact && styles.startButtonCompact, busy && styles.startDisabled]}>
-        <Text style={styles.startText}>{busy ? '保存中…' : buttonLabel}</Text>
-        <ArrowRight size={20} color="#017AF4" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
-      </Pressable>
+      <View style={showSkip && styles.actionRow}>
+        {showSkip && <Pressable accessibilityRole="button" accessibilityLabel="スキップして始める"
+          accessibilityHint="予算を0円にして家計簿を始めます"
+          accessibilityState={{ disabled: busy || !!restoreBusy }} disabled={busy || !!restoreBusy}
+          onPress={() => preview ? onClosePreview?.() : void start(0)}
+          style={[styles.skipButton, compact && styles.startButtonCompact]}>
+          <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}
+            style={[styles.skipText, narrow && styles.narrowActionText]}>スキップして始める</Text>
+        </Pressable>}
+        <Pressable accessibilityRole="button" accessibilityLabel={buttonLabel}
+          accessibilityState={{ disabled: busy || !!restoreBusy }} disabled={busy || !!restoreBusy}
+          onPress={() => preview ? onClosePreview?.() : void start()}
+          style={[styles.startButton, showSkip && styles.rowStartButton, compact && styles.startButtonCompact, busy && styles.startDisabled]}>
+          <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}
+            style={[styles.startText, showSkip && styles.rowStartText, narrow && styles.narrowActionText]}>{busy ? '保存中…' : buttonLabel}</Text>
+          {!showSkip && <ArrowRight size={20} color="#017AF4" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />}
+        </Pressable>
+      </View>
       {onRestore && <Pressable accessibilityRole="button" accessibilityLabel="バックアップから復元"
         accessibilityState={{ disabled: busy || !!restoreBusy }} disabled={busy || !!restoreBusy}
         onPress={onRestore} style={styles.restoreButton}>
@@ -65,7 +78,8 @@ function BudgetWelcomeScreen({ testID, title, buttonLabel, onStart, onRestore, r
       </Pressable>}
     </View>
 
-    <NumberPad value={amount} onChange={setAmount} compact={compact} quickAmounts={[10000, 30000, 50000]} />
+    <NumberPad value={amount} onChange={setAmount} compact={compact} quickAmounts={[10000, 30000, 50000]}
+      bottomPadding={showSkip ? 8 : undefined} />
   </View>;
 }
 
@@ -78,7 +92,7 @@ export function InitialBudgetWelcomeScreen({ onStart, onRestore, restoreBusy, pr
   preview?: boolean; onClosePreview?: () => void;
 }) {
   return <BudgetWelcomeScreen testID="initial-budget-welcome" title="さあ、はじめてみよう" buttonLabel="家計簿を始める"
-    onStart={onStart} onRestore={onRestore} restoreBusy={restoreBusy} preview={preview} onClosePreview={onClosePreview} />;
+    onStart={onStart} onRestore={onRestore} restoreBusy={restoreBusy} preview={preview} onClosePreview={onClosePreview} showSkip />;
 }
 
 const styles = StyleSheet.create({
@@ -103,6 +117,13 @@ const styles = StyleSheet.create({
   startDisabled: {},
   startButtonCompact: { minHeight: 52 },
   startText: { color: '#017AF4', fontSize: 17, fontWeight: '700' },
+  actionRow: { flexDirection: 'row', gap: 9 },
+  rowStartButton: { flex: 1, minWidth: 0, paddingHorizontal: 6 },
+  rowStartText: { fontSize: 14 },
+  skipButton: { flex: 1, minWidth: 0, minHeight: 60, borderRadius: 30, backgroundColor: '#17436B',
+    alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6 },
+  skipText: { color: '#FFFFFF', fontSize: 14, fontWeight: '700' },
+  narrowActionText: { fontSize: 12 },
   restoreButton: { alignSelf: 'center', minHeight: 42, justifyContent: 'center', paddingHorizontal: 16 },
   restoreText: { color: '#FFFFFFE8', fontSize: 13, fontWeight: '600' },
   error: { color: '#FFFFFF', textAlign: 'center', fontSize: 12 },

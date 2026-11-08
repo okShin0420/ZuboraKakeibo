@@ -37,7 +37,7 @@ require.extensions['.ts'] = (module, filename) => {
   module._compile(code, filename);
 };
 
-const { cancelEveningReminders, eveningReminderBodies, isEveningReminderNotification,
+const { budgetReminderTitle, budgetReminderBody, cancelEveningReminders, eveningReminderBodies, isEveningReminderNotification,
   syncEveningReminders, upcomingEveningReminders } = require('./eveningReminders.ts');
 const settings = { monthlyNotificationEnabled: true };
 
@@ -70,6 +70,26 @@ test('21:30固定、重複なし、当日起動、OFF、全削除を反映する
   await cancelEveningReminders();
   assert.deepEqual(scheduled.map(item => item.identifier), ['other']);
   scheduled.length = 0;
+});
+
+test('予算0円の間は火・土だけ予算設定を促し、設定後は通常の通知へ切り替える', async () => {
+  scheduled.length = 0;
+  permissionGranted = true;
+  const monday = new Date('2026-11-09T01:00:00Z');
+  const plan = upcomingEveningReminders(monday, true);
+  assert.equal(plan.length, 8);
+  assert.ok(plan.every(item => [2, 6].includes(new Date(item.date.getTime() + 9 * 3600000).getUTCDay())));
+  assert.ok(plan.every(item => item.title === budgetReminderTitle && item.body === budgetReminderBody));
+  await syncEveningReminders(settings, monday, true);
+  assert.equal(scheduled.length, 8);
+  assert.ok(scheduled.every(item => item.content.title === budgetReminderTitle));
+  await syncEveningReminders(settings, monday, true);
+  assert.equal(scheduled.length, 8);
+  await syncEveningReminders(settings, monday, false);
+  assert.equal(scheduled.length, 12);
+  assert.ok(scheduled.every(item => item.content.title === '今日はどうだった？'));
+  await syncEveningReminders({ ...settings, monthlyNotificationEnabled: false }, monday, true);
+  assert.equal(scheduled.length, 0);
 });
 
 test('権限拒否時は予約せず、既存のテスト通知もタップ先を判別できる', async () => {

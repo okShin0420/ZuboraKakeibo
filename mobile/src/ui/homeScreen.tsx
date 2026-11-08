@@ -33,8 +33,6 @@ export function HomeScreen({ home, onSettings, onExpense, onAddBudget }: {
   const remainingText = yen(home.remainingAmount);
   const balanceFontSize = Math.min(compact ? 48 : 62, Math.max(24,
     Math.floor((balanceSize.width - 96) / (remainingText.length * 0.62 + 0.5))));
-  const estimatedAmountWidth = balanceFontSize * (remainingText.length * 0.62 + 0.5);
-  const addBudgetButtonLeft = Math.max(4, Math.round((balanceSize.width - estimatedAmountWidth) / 2) - 24);
   return <View style={styles.screen}>
     <LinearGradient pointerEvents="none" colors={['#FFFFFF00', '#FFFFFF22', '#FFFFFFCC', '#FFFFFF']}
       locations={[0, 0.35, 0.68, 0.88]} style={styles.fade} />
@@ -74,14 +72,16 @@ export function HomeScreen({ home, onSettings, onExpense, onAddBudget }: {
         </Svg>
         <Text style={styles.balanceLabel}>今月あと使えるお金</Text>
         <View style={styles.balanceAmountRow}>
-          <Pressable accessibilityRole="button" accessibilityLabel="今月使えるお金を追加"
-            onPress={onAddBudget} style={[styles.addBudgetButton, { left: addBudgetButtonLeft }]}>
-            <View style={styles.addBudgetCircle}><Plus size={19} color={colors.white} strokeWidth={3.2} /></View>
-          </Pressable>
-          <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.42}
-            style={[styles.amount, compact && styles.compactAmount, { fontSize: balanceFontSize }]}>
-            <Text style={[styles.currency, { fontSize: Math.round(balanceFontSize * 0.58) }]}>¥</Text>{remainingText}
-          </Text>
+          <View style={[styles.amountGroup, { maxWidth: balanceSize.width - 52 }]}>
+            <Pressable accessibilityRole="button" accessibilityLabel="今月使えるお金を追加"
+              onPress={onAddBudget} style={styles.addBudgetButton}>
+              <View style={styles.addBudgetCircle}><Plus size={19} color={colors.white} strokeWidth={3.2} /></View>
+            </Pressable>
+            <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.42}
+              style={[styles.amount, compact && styles.compactAmount, { fontSize: balanceFontSize }]}>
+              <Text style={[styles.currency, { fontSize: Math.round(balanceFontSize * 0.58) }]}>¥</Text>{remainingText}
+            </Text>
+          </View>
         </View>
         <View style={styles.remainingDays} accessibilityLabel={`残${home.remainingDays}日`}>
           <Text style={styles.remainingDaysText}>残</Text>
@@ -145,12 +145,13 @@ const styles = StyleSheet.create({
   shortBalance: { paddingTop: 43, paddingBottom: 20 },
   compactBalance: { paddingTop: 36, paddingBottom: 20 },
   balanceLabel: { fontSize: 13, color: colors.ink, fontWeight: '600' },
-  balanceAmountRow: { width: '100%', minHeight: 78, justifyContent: 'center' },
-  addBudgetButton: { position: 'absolute', top: '50%', zIndex: 2,
+  balanceAmountRow: { width: '100%', minHeight: 78, justifyContent: 'center', alignItems: 'center' },
+  amountGroup: { flexDirection: 'row', alignItems: 'center', paddingLeft: 44, transform: [{ translateX: -22 }] },
+  addBudgetButton: { position: 'absolute', left: 0, top: '50%', zIndex: 2,
     width: 44, height: 44, alignItems: 'center', justifyContent: 'center', transform: [{ translateY: -22 }] },
   addBudgetCircle: { width: 30, height: 30, borderRadius: 15, backgroundColor: '#3189F8',
     alignItems: 'center', justifyContent: 'center' },
-  amount: { width: '100%', textAlign: 'center', fontFamily: 'ui-rounded', fontSize: 62, fontWeight: '600', color: '#000000', letterSpacing: -3, marginTop: -3 },
+  amount: { flexShrink: 1, textAlign: 'center', fontFamily: 'ui-rounded', fontSize: 62, fontWeight: '600', color: '#000000', letterSpacing: -3, marginTop: -3 },
   compactAmount: { marginTop: 4 },
   currency: { fontFamily: 'ui-rounded', fontSize: 36, fontWeight: '600', letterSpacing: 0 },
   remainingDays: { marginTop: 1, flexDirection: 'row', alignItems: 'baseline' },

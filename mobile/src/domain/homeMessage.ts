@@ -14,13 +14,13 @@ const overBudgetMessages = [
 ] as const;
 
 export function homeMessage(budgetAmount: number, remainingAmount: number, remainingDays: number): string {
+  if (budgetAmount <= 0) return '予算決めよーよー。';
   if (remainingAmount < 0) {
     if (remainingDays <= 4) return overBudgetMessages[3];
     if (remainingDays >= 25) return overBudgetMessages[0];
     if (remainingDays >= 15) return overBudgetMessages[1];
     return overBudgetMessages[2];
   }
-  if (budgetAmount <= 0) return '今月の金額を設定してね。';
   if (remainingDays < 5) return '今月もあと少し。自分のペースで。';
 
   const percentage = Math.floor(Math.max(0, remainingAmount) * 100 / budgetAmount);

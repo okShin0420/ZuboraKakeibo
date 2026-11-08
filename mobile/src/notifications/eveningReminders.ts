@@ -17,25 +17,34 @@ export const eveningReminderBodies: Record<number, string> = {
   6: '疲れは取れた？使ってなければ、記録しなくて大丈夫だよ。',
 };
 
+export const budgetReminderTitle = 'そろそろ予算決まった？';
+export const budgetReminderBody = '予算決めると、あといくら使えるか分かるよ。';
+
 function tokyoToday(now: Date): IsoDate {
   return new Date(now.getTime() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
 }
 
-export function upcomingEveningReminders(now = new Date()): Array<{ date: Date; body: string }> {
+export function upcomingEveningReminders(now = new Date(), budgetNeedsSetting = false): Array<{ date: Date; title: string; body: string }> {
   const today = tokyoToday(now);
-  const result: Array<{ date: Date; body: string }> = [];
+  const result: Array<{ date: Date; title: string; body: string }> = [];
   // The app is open now: today's reminder must not be delivered, even if it is not yet evening.
   for (let offset = 1; offset <= LOOKAHEAD_DAYS; offset++) {
     const day = addDays(today, offset);
-    const body = eveningReminderBodies[new Date(`${day}T00:00:00Z`).getUTCDay()];
-    if (body) result.push({ date: new Date(`${day}T${HOUR}:${MINUTE}:00+09:00`), body });
+    const weekday = new Date(`${day}T00:00:00Z`).getUTCDay();
+    const body = budgetNeedsSetting
+      ? ([2, 6].includes(weekday) ? budgetReminderBody : undefined)
+      : eveningReminderBodies[weekday];
+    if (body) result.push({
+      date: new Date(`${day}T${HOUR}:${MINUTE}:00+09:00`),
+      title: budgetNeedsSetting ? budgetReminderTitle : '今日はどうだった？', body,
+    });
   }
   return result;
 }
 
 let previousSync: Promise<unknown> = Promise.resolve();
 
-export function syncEveningReminders(settings: Settings, now = new Date()): Promise<string> {
+export function syncEveningReminders(settings: Settings, now = new Date(), budgetNeedsSetting = false): Promise<string> {
   const next = previousSync.catch(() => undefined).then(async () => {
     if (Platform.OS === 'web') return '';
     const existing = (await Notifications.getAllScheduledNotificationsAsync())
@@ -54,20 +63,23 @@ export function syncEveningReminders(settings: Settings, now = new Date()): Prom
       for (const request of existing) await Notifications.cancelScheduledNotificationAsync(request.identifier);
       return '端末の通知が許可されていません。端末の設定から通知を許可してください。';
     }
-    const desired = upcomingEveningReminders(now);
+    const desired = upcomingEveningReminders(now, budgetNeedsSetting);
     const byTime = new Map(desired.map(item => [item.date.toISOString(), item]));
     const retained = new Set<string>();
     for (const request of existing) {
       const time = request.content.data?.scheduledAt;
-      if (typeof time === 'string' && byTime.has(time) && !retained.has(time)) retained.add(time);
-      else await Notifications.cancelScheduledNotificationAsync(request.identifier);
+      const item = typeof time === 'string' ? byTime.get(time) : undefined;
+      if (item && typeof time === 'string' && request.content.title === item.title
+        && request.content.body === item.body && !retained.has(time)) {
+        retained.add(time);
+      } else await Notifications.cancelScheduledNotificationAsync(request.identifier);
     }
     for (const item of desired) {
       const scheduledAt = item.date.toISOString();
       if (retained.has(scheduledAt)) continue;
       await Notifications.scheduleNotificationAsync({
         content: {
-          title: '今日はどうだった？',
+          title: item.title,
           body: item.body,
           data: { [MANAGED_KEY]: true, scheduledAt },
         },

@@ -27,6 +27,7 @@ test('割合と日数の境界、および通常区分外の案内', () => {
   assert.equal(homeMessage(100, -100, 25), 'ちょっと使いすぎちゃったね。');
   assert.equal(homeMessage(100, 80, 24), cases[0][1][1]);
   assert.equal(homeMessage(100, 80, 14), cases[0][1][2]);
-  assert.equal(homeMessage(0, 0, 25), '今月の金額を設定してね。');
+  assert.equal(homeMessage(0, 0, 25), '予算決めよーよー。');
+  assert.equal(homeMessage(0, -100, 4), '予算決めよーよー。');
   assert.equal(homeMessage(100, 8, 4), '今月もあと少し。自分のペースで。');
 });
