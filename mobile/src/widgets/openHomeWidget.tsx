@@ -1,4 +1,4 @@
-import { AccessoryWidgetBackground, Text, VStack, ZStack } from '@expo/ui/swift-ui';
+import { Text, VStack, ZStack } from '@expo/ui/swift-ui';
 import { clipShape, containerBackground, font, foregroundStyle, frame, lineLimit, monospacedDigit, widgetURL } from '@expo/ui/swift-ui/modifiers';
 import { createWidget } from 'expo-widgets';
 
@@ -15,10 +15,9 @@ function OpenHomeWidget({ amountText, daysText }: OpenHomeWidgetProps) {
   return (
     <ZStack modifiers={[
       widgetURL('zuborakakeibo://home'),
-      containerBackground({ type: 'material', material: 'regular' }, 'widget'),
+      containerBackground('clear', 'widget'),
       clipShape('roundedRectangle', 12),
     ]}>
-      <AccessoryWidgetBackground />
       <VStack spacing={1} modifiers={[frame({ maxWidth: Infinity, maxHeight: Infinity, alignment: 'center' })]}>
         <Text modifiers={[font({ size: amountSize, weight: 'semibold', design: 'rounded' }), monospacedDigit(), lineLimit(1), foregroundStyle({ type: 'hierarchical', style: 'primary' })]}>{amountText}</Text>
         <Text modifiers={[font({ size: 11, weight: 'semibold', design: 'rounded' }), lineLimit(1), foregroundStyle({ type: 'hierarchical', style: 'secondary' })]}>{daysText}</Text>
