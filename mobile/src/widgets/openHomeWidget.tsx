@@ -16,7 +16,7 @@ function OpenHomeWidget({ amountText, daysText }: OpenHomeWidgetProps) {
     <ZStack modifiers={[
       widgetURL('zuborakakeibo://home'),
       containerBackground({ type: 'material', material: 'regular' }, 'widget'),
-      clipShape('roundedRectangle', 16),
+      clipShape('roundedRectangle', 12),
     ]}>
       <AccessoryWidgetBackground />
       <VStack spacing={1} modifiers={[frame({ maxWidth: Infinity, maxHeight: Infinity, alignment: 'center' })]}>

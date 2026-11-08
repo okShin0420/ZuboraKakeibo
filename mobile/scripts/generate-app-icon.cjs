@@ -9,7 +9,7 @@ const size = 1024;
 const output = new PNG({ width: size, height: size });
 const top = [0x0d, 0x93, 0xfc];
 const bottom = [0x01, 0x56, 0xf4];
-const scale = 1.2;
+const scale = 1.25;
 const left = (size - dog.width * scale) / 2;
 const topOffset = 100;
 

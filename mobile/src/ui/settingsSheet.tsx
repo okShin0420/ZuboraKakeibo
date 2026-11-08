@@ -23,9 +23,8 @@ function SettingSwitch({ value, disabled, label, onChange }: {
 
 const periodName = (labelMonth: string) => `${Number(labelMonth.slice(0, 4))}年${Number(labelMonth.slice(5, 7))}月度`;
 
-export function SettingsSheet({ settings, busy, error, notificationTestBusy, notificationTestMessage, dataBusy, dataMessage, onClose, onMoney, onChange, onTestNotification, onBackup, onRestore, onRestorePrevious, onDeleteAllData }: {
+export function SettingsSheet({ settings, busy, error, dataBusy, dataMessage, onClose, onMoney, onChange, onBackup, onRestore, onRestorePrevious, onDeleteAllData }: {
   settings: Settings; busy: boolean; error: string; onClose: () => void; onMoney: () => void;
-  notificationTestBusy: boolean; notificationTestMessage: string; onTestNotification: () => void;
   dataBusy: boolean; dataMessage: string; onBackup: () => void; onRestore: () => void; onRestorePrevious: () => void; onDeleteAllData: () => void;
   onChange: (changes: Partial<Pick<Settings, 'monthlyNotificationEnabled' | 'startDay' | 'adjustForWeekendsAndHolidays'>>) => void;
 }) {
@@ -91,13 +90,6 @@ export function SettingsSheet({ settings, busy, error, notificationTestBusy, not
             </View>
             <View style={styles.reminderOptions}>
               <Text style={styles.reminderExplanation}>月初は朝9:00。夜の確認は火・木・土の21:30に、アプリを開かなかった日だけ届きます。</Text>
-              <Pressable accessibilityRole="button" accessibilityLabel="5秒後にテスト通知を送る"
-                accessibilityState={{ disabled: notificationTestBusy || !settings.monthlyNotificationEnabled }}
-                disabled={notificationTestBusy || !settings.monthlyNotificationEnabled}
-                onPress={onTestNotification} style={styles.reminderTest}>
-                <Text style={styles.reminderTestText}>{notificationTestBusy ? '送信中…' : 'テスト通知を送る'}</Text>
-              </Pressable>
-              {notificationTestMessage ? <Text accessibilityRole="alert" style={styles.reminderExplanation}>{notificationTestMessage}</Text> : null}
             </View>
             </View>
           </View>
@@ -260,9 +252,6 @@ const styles = StyleSheet.create({
   notificationCard: { overflow: 'hidden', borderRadius: 20, backgroundColor: colors.white },
   reminderOptions: { paddingHorizontal: 14, paddingTop: 13, paddingBottom: 16, borderTopWidth: 1, borderTopColor: '#EDF1F1', gap: 10 },
   reminderExplanation: { color: '#637073', fontSize: 10, lineHeight: 16 },
-  reminderTest: { alignSelf: 'flex-start', minHeight: 38, justifyContent: 'center', paddingHorizontal: 14,
-    borderRadius: 12, backgroundColor: '#E8F4FF' },
-  reminderTestText: { color: colors.blue, fontSize: 12, fontWeight: '700' },
   dataRow: { minHeight: 68 },
   dataRowBorder: { borderTopWidth: 1, borderTopColor: '#EDF1F1' },
   rowPressed: { backgroundColor: '#F1F7FB' },

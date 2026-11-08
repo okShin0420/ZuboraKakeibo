@@ -38,7 +38,7 @@ require.extensions['.ts'] = (module, filename) => {
 };
 
 const { cancelEveningReminders, eveningReminderBodies, isEveningReminderNotification,
-  scheduleEveningReminderTest, syncEveningReminders, upcomingEveningReminders } = require('./eveningReminders.ts');
+  syncEveningReminders, upcomingEveningReminders } = require('./eveningReminders.ts');
 const settings = { monthlyNotificationEnabled: true };
 
 test('火・木・土だけを今後4週分予約し、起動した当日は除く', () => {
@@ -72,7 +72,7 @@ test('21:30固定、重複なし、当日起動、OFF、全削除を反映する
   scheduled.length = 0;
 });
 
-test('権限拒否時は予約せず、5秒テストは通常予約と分離する', async () => {
+test('権限拒否時は予約せず、既存のテスト通知もタップ先を判別できる', async () => {
   scheduled.length = 0;
   permissionGranted = false;
   assert.match(await syncEveningReminders(settings, new Date('2026-11-09T01:00:00Z')), /許可されていません/);
@@ -80,11 +80,5 @@ test('権限拒否時は予約せず、5秒テストは通常予約と分離す�
   assert.equal(isEveningReminderNotification({ zuboraEveningReminderTest: true }), true);
   assert.equal(isEveningReminderNotification({ zuboraEveningReminder: true }), true);
   permissionGranted = true;
-  await scheduleEveningReminderTest();
-  assert.equal(scheduled.length, 1);
-  assert.equal(scheduled[0].trigger.seconds, 5);
-  assert.equal(isEveningReminderNotification(scheduled[0].content.data), true);
-  await syncEveningReminders(settings, new Date('2026-11-09T01:00:00Z'));
-  assert.equal(scheduled.some(item => item.trigger.seconds === 5), true);
   scheduled.length = 0;
 });
