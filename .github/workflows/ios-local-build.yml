@@ -37,6 +37,8 @@ jobs:
 
       - name: Build IPA on this Mac
         working-directory: mobile
+        env:
+          EAS_LOCAL_BUILD_WORKINGDIR: ${{ runner.temp }}/eas-local-build
         run: |
           mkdir -p build
           npx --yes eas-cli@26.0.0 build \
