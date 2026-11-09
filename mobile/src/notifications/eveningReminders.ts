@@ -12,18 +12,18 @@ const MINUTE = 30;
 const HOUR = 21;
 
 export const eveningReminderBodies: Record<number, string> = {
-  2: '最近開いてくれてないけど…',
-  4: 'お金使ってないん？？？？？？',
-  0: '寝る前くらいアプリ開いてよ…',
+  2: 'アプリ開いてくれてないけど…',
+  4: 'お金使ってないの？？？？？？',
+  0: '楽しむのも大事だけど忘れないでよ！',
 };
 
-export const budgetReminderTitle = 'おーーーーーーーーーい';
-export const budgetReminderBody = '楽しむのも大事だけど忘れないでよ！';
+export const budgetReminderTitle = '忘れてない？';
+export const budgetReminderBody = '寝る前くらいアプリ開いてよ…';
 
 const eveningReminderTitles: Record<number, string> = {
   2: '最近お金使ってないの？',
   4: '寂しいよーーーーーーーーー',
-  0: '忘れてない？',
+  0: 'おーーーーーーーーーい',
 };
 
 function tokyoToday(now: Date): IsoDate {

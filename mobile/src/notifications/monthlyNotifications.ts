@@ -7,7 +7,7 @@ import type { IsoDate } from '../domain/period';
 const CHANNEL_ID = 'monthly-budget-start';
 const MANAGED_KEY = 'zuboraMonthlyStart';
 const FUTURE_COUNT = 12;
-const MONTHLY_TITLE = '新しい月度がはじまったよ！';
+const MONTHLY_TITLE = '新しい月がはじまったよ！';
 const MONTHLY_BODY = 'やりくり金額決めなくてもいいから、一緒にはじめてみよ！';
 
 if (Platform.OS !== 'web') {

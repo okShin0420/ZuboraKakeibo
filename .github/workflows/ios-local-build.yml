@@ -1,4 +1,4 @@
-name: Build iOS IPA locally
+name: Build and submit iOS IPA
 
 on:
   workflow_dispatch:
@@ -56,3 +56,12 @@ jobs:
           path: mobile/build/app.ipa
           if-no-files-found: error
           retention-days: 1
+
+      - name: Submit IPA to App Store Connect
+        working-directory: mobile
+        run: |
+          npx --yes eas-cli@26.0.0 submit \
+            --platform ios \
+            --profile production \
+            --path build/app.ipa \
+            --non-interactive
