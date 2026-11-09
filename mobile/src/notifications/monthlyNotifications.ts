@@ -7,6 +7,8 @@ import type { IsoDate } from '../domain/period';
 const CHANNEL_ID = 'monthly-budget-start';
 const MANAGED_KEY = 'zuboraMonthlyStart';
 const FUTURE_COUNT = 12;
+const MONTHLY_TITLE = '新しい月度がはじまったよ！';
+const MONTHLY_BODY = 'やりくり金額決めなくてもいいから、一緒にはじめてみよ！';
 
 if (Platform.OS !== 'web') {
   Notifications.setNotificationHandler({
@@ -58,7 +60,8 @@ async function sync(settings: Settings, getDates: () => Promise<IsoDate[]>): Pro
   const retained = new Set<string>();
   for (const request of existing) {
     const scheduledAt = request.content.data?.scheduledAt;
-    if (typeof scheduledAt === 'string' && desired.has(scheduledAt) && !retained.has(scheduledAt)) {
+    if (typeof scheduledAt === 'string' && desired.has(scheduledAt) && !retained.has(scheduledAt)
+      && request.content.title === MONTHLY_TITLE && request.content.body === MONTHLY_BODY) {
       retained.add(scheduledAt);
     } else {
       await Notifications.cancelScheduledNotificationAsync(request.identifier);
@@ -69,8 +72,8 @@ async function sync(settings: Settings, getDates: () => Promise<IsoDate[]>): Pro
     if (retained.has(scheduledAt)) continue;
     await Notifications.scheduleNotificationAsync({
       content: {
-        title: '新しい月度がはじまりました',
-        body: '今月のやりくり金額を確認してみましょう。',
+        title: MONTHLY_TITLE,
+        body: MONTHLY_BODY,
         data: { [MANAGED_KEY]: true, scheduledAt },
       },
       trigger: {

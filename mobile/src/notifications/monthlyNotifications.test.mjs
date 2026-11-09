@@ -51,8 +51,14 @@ test('端末内予約は重複させず、月度変更とOFFで更新する', as
   const dates = async () => ['2027-01-08', '2027-02-08'];
   await syncMonthlyNotifications(settings, dates);
   assert.equal(scheduled.length, 2);
+  assert.equal(scheduled[0].content.title, '新しい月度がはじまったよ！');
+  assert.equal(scheduled[0].content.body, 'やりくり金額決めなくてもいいから、一緒にはじめてみよ！');
   await syncMonthlyNotifications(settings, dates);
   assert.equal(scheduled.length, 2);
+  scheduled[0].content.title = '以前の見出し';
+  await syncMonthlyNotifications(settings, dates);
+  assert.equal(scheduled.length, 2);
+  assert.ok(scheduled.every(item => item.content.title === '新しい月度がはじまったよ！'));
   await syncMonthlyNotifications(settings, async () => ['2027-01-08', '2027-03-08']);
   assert.equal(scheduled.length, 2);
   assert.equal(scheduled[0].trigger.date.toISOString(), '2027-01-08T00:00:00.000Z');

@@ -12,13 +12,19 @@ const MINUTE = 30;
 const HOUR = 21;
 
 export const eveningReminderBodies: Record<number, string> = {
-  2: '1日お疲れ様！今日は買い物しなかった？',
-  4: '出費があれば、ぽんと入力。なかったら、おやすみなさい。',
-  6: '疲れは取れた？使ってなければ、記録しなくて大丈夫だよ。',
+  2: '最近開いてくれてないけど…',
+  4: 'お金使ってないん？？？？？？',
+  0: '寝る前くらいアプリ開いてよ…',
 };
 
-export const budgetReminderTitle = 'そろそろ予算決まった？';
-export const budgetReminderBody = '予算決めると、あといくら使えるか分かるよ。';
+export const budgetReminderTitle = 'おーーーーーーーーーい';
+export const budgetReminderBody = '楽しむのも大事だけど忘れないでよ！';
+
+const eveningReminderTitles: Record<number, string> = {
+  2: '最近お金使ってないの？',
+  4: '寂しいよーーーーーーーーー',
+  0: '忘れてない？',
+};
 
 function tokyoToday(now: Date): IsoDate {
   return new Date(now.getTime() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
@@ -36,7 +42,7 @@ export function upcomingEveningReminders(now = new Date(), budgetNeedsSetting = 
       : eveningReminderBodies[weekday];
     if (body) result.push({
       date: new Date(`${day}T${HOUR}:${MINUTE}:00+09:00`),
-      title: budgetNeedsSetting ? budgetReminderTitle : '今日はどうだった？', body,
+      title: budgetNeedsSetting ? budgetReminderTitle : eveningReminderTitles[weekday], body,
     });
   }
   return result;

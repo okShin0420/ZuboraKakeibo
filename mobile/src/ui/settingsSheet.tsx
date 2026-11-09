@@ -91,7 +91,7 @@ export function SettingsSheet({ settings, busy, error, dataBusy, dataMessage, on
             <View style={styles.reminderOptions}>
               <Text style={styles.reminderExplanation}>{settings.currentBudgetAmount <= 0
                 ? '月初は朝9:00。予算が0円の間は火・土の21:30に、アプリを開かなかった日だけお知らせします。'
-                : '月初は朝9:00。夜の確認は火・木・土の21:30に、アプリを開かなかった日だけ届きます。'}</Text>
+                : '月初は朝9:00。夜の確認は火・木・日の21:30に、アプリを開かなかった日だけ届きます。'}</Text>
             </View>
             </View>
           </View>

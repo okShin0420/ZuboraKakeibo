@@ -41,14 +41,16 @@ const { budgetReminderTitle, budgetReminderBody, cancelEveningReminders, evening
   syncEveningReminders, upcomingEveningReminders } = require('./eveningReminders.ts');
 const settings = { monthlyNotificationEnabled: true };
 
-test('火・木・土だけを今後4週分予約し、起動した当日は除く', () => {
+test('火・木・日だけを今後4週分予約し、起動した当日は除く', () => {
   const now = new Date('2026-11-10T01:00:00Z'); // Tuesday 10:00 JST
   const plan = upcomingEveningReminders(now);
   assert.equal(plan.length, 12);
   assert.equal(plan[0].date.toISOString(), '2026-11-12T12:30:00.000Z');
   assert.equal(plan[0].body, eveningReminderBodies[4]);
-  assert.equal(plan[1].body, eveningReminderBodies[6]);
-  assert.ok(plan.every(item => [2, 4, 6].includes(new Date(item.date.getTime() + 9 * 3600000).getUTCDay())));
+  assert.equal(plan[0].title, '寂しいよーーーーーーーーー');
+  assert.equal(plan[1].body, eveningReminderBodies[0]);
+  assert.equal(plan[1].title, '忘れてない？');
+  assert.ok(plan.every(item => [0, 2, 4].includes(new Date(item.date.getTime() + 9 * 3600000).getUTCDay())));
 });
 
 test('21:30固定、重複なし、当日起動、OFF、全削除を反映する', async () => {
@@ -87,7 +89,7 @@ test('予算0円の間は火・土だけ予算設定を促し、設定後は通�
   assert.equal(scheduled.length, 8);
   await syncEveningReminders(settings, monday, false);
   assert.equal(scheduled.length, 12);
-  assert.ok(scheduled.every(item => item.content.title === '今日はどうだった？'));
+  assert.ok(scheduled.every(item => item.content.title !== budgetReminderTitle));
   await syncEveningReminders({ ...settings, monthlyNotificationEnabled: false }, monday, true);
   assert.equal(scheduled.length, 0);
 });
