@@ -84,7 +84,8 @@ function BudgetWelcomeScreen({ testID, title, buttonLabel, onStart, onRestore, r
 }
 
 export function MonthlyBudgetWelcomeScreen({ onStart }: { onStart: (amount: number) => Promise<void> }) {
-  return <BudgetWelcomeScreen testID="monthly-budget-welcome" title="新しい月度がはじまりました" buttonLabel="家計簿をはじめる" onStart={onStart} />;
+  return <BudgetWelcomeScreen testID="monthly-budget-welcome" title="新しい月度がはじまりました"
+    buttonLabel="家計簿をはじめる" onStart={onStart} showSkip />;
 }
 
 export function InitialBudgetWelcomeScreen({ onStart, onRestore, restoreBusy, preview, onClosePreview }: {
