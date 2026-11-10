@@ -3,7 +3,7 @@
     "name": "ズボラ家計簿",
     "slug": "zubora-kakeibo",
     "scheme": "zuborakakeibo",
-    "version": "1.1.0",
+    "version": "1.1.1",
     "orientation": "portrait",
     "icon": "./assets/app-icon-dog-full-gradient.png",
     "userInterfaceStyle": "light",
